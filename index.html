@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DNA Econômico — Da Essência à Decisão</title>
+<style>
+/* ============================================================
+   ESTILOS GERAIS
+   Aqui definimos as "variáveis" de cor e fonte do projeto.
+   É como criar um padrão visual que vale para todo o sistema.
+============================================================ */
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #1d4ed8;
+  --soft: #eef2ff;
+  --good: #15803d;
+  --bad: #b91c1c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
+
+/* Cabeçalho do sistema */
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header-title { font-size: 22px; font-weight: 800; color: var(--accent); }
+.header-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* Barra de controles (empresa + módulo) */
+.controls {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 24px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Botões de seleção (empresa / módulo) */
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--soft); border-color: #c7d2fe; }
+.btn.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+.btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Área principal onde o módulo é carregado */
+.main { padding: 20px 24px; }
+
+/* Tela de boas-vindas (quando nenhum módulo está ativo) */
+.welcome {
+  max-width: 600px;
+  margin: 60px auto;
+  text-align: center;
+}
+.welcome h2 { font-size: 26px; margin-bottom: 12px; color: var(--accent); }
+.welcome p { color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+
+/* ============================================================
+   MÓDULO FINANCEIRO — estilos das páginas internas
+============================================================ */
+.module-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.module-tab {
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+.module-tab.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  background: var(--card);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.toolbar-group { display: flex; flex-direction: column; gap: 6px; }
+.toolbar-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.toolbar-group select {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+.quick-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.quick-btn {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.quick-btn.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+
+/* Cards de resumo (KPIs) */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.kpi-card h3 { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.kpi-meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.delta-good { color: var(--good); font-weight: 700; }
+.delta-bad { color: var(--bad); font-weight: 700; }
+
+/* Tabela de dados */
+.section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.section-head h2 { font-size: 18px; }
+.table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; background: white; }
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  white-space: nowrap;
+}
+tbody td, tbody th {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: white;
+  min-width: 280px;
+  font-size: 13px;
+  text-align: left;
+}
+tbody tr.row-group > th { background: #f8fafc; font-weight: 800; font-size: 12px; text-transform: uppercase; color: #475569; }
+tbody tr.row-subtotal > th,
+tbody tr.row-subtotal td { background: #fafafa; font-weight: 700; }
+.cell-value { font-weight: 700; white-space: nowrap; font-size: 13px; }
+.cell-pct { font-size: 11px; color: var(--muted); }
+th.col-total { position: sticky; right: 0; z-index: 4; background: #e8eefc; min-width: 160px; }
+td.col-total { position: sticky; right: 0; z-index: 1; background: #f0f5ff; box-shadow: -1px 0 0 var(--line); min-width: 160px; }
+
+/* Loading e erro */
+.loading { text-align: center; padding: 40px; color: var(--muted); font-size: 15px; }
+.error-msg { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; color: #b91c1c; margin: 16px 0; font-size: 14px; }
+
+@media (max-width: 900px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .header { padding: 12px 16px; }
+  .controls, .main { padding: 12px 16px; }
+}
+@media (max-width: 500px) {
+  .cards-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+  CABEÇALHO
+  Aparece em todas as páginas. Mostra o nome do sistema.
+============================================================ -->
+<div class="header">
+  <div>
+    <div class="header-title">DNA Econômico</div>
+    <div class="header-sub">Da Essência à Decisão · Controladoria Estratégica</div>
+  </div>
+  <div style="font-size:12px; color:var(--muted);" id="header-info"></div>
+</div>
+
+<!-- ============================================================
+  BARRA DE CONTROLES
+  Aqui o usuário escolhe: qual empresa + qual módulo.
+  Essa escolha controla tudo que aparece abaixo.
+============================================================ -->
+<div class="controls">
+  <div class="control-group">
+    <label>Empresa</label>
+    <div class="btn-group">
+      <button class="btn active" onclick="setEmpresa('operacional')">Operacional</button>
+      <button class="btn" onclick="setEmpresa('holding')">Holding</button>
+      <button class="btn" onclick="setEmpresa('consolidado')">Consolidado</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Módulo</label>
+    <div class="btn-group">
+      <button class="btn active" onclick="setModulo('financeiro')">Financeiro</button>
+      <button class="btn disabled" title="Em desenvolvimento">DRE</button>
+      <button class="btn disabled" title="Em desenvolvimento">Balanço Patrimonial</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+  ÁREA PRINCIPAL
+  Aqui o conteúdo muda conforme empresa + módulo selecionados.
+============================================================ -->
+<div class="main" id="main-content">
+  <div class="loading">Carregando dados...</div>
+</div>
+
+
+<script>
+/* ============================================================
+  CONFIGURAÇÃO DO PROJETO
+  
+  Aqui ficam as "regras" do sistema — quais arquivos existem,
+  como eles se chamam, quais meses estão disponíveis.
+  
+  COMO ADICIONAR UM MÊS NOVO:
+  Só adicione o nome do arquivo na lista abaixo e faça
+  o upload do CSV na pasta correta do GitHub.
+  O resto o sistema faz automaticamente.
+============================================================ */
+
+// BASE_URL: endereço base onde os arquivos estão hospedados
+// Quando subir para o GitHub Pages, troque pela URL real
+const BASE_URL = 'https://raw.githubusercontent.com/elder901/controladoria-es/main';
+
+// ARQUIVOS DISPONÍVEIS POR EMPRESA
+// Chave = nome da pasta, Valor = lista de arquivos CSV disponíveis
+const ARQUIVOS = {
+  operacional: [
+    'FC_jan_2025.csv',
+    'FC_fev_2025.csv',
+    'FC_mar_2025.csv',
+    'FC_abr_2025.csv',
+    'FC_mai_2025.csv',
+    'FC_jun_2025.csv',
+    'FC_jul_2025.csv',
+    'FC_ago_2025.csv',
+    'FC_set_2025.csv',
+    'FC_out_2025.csv',
+    'FC_nov_2025.csv',
+    'FC_dez_2025.csv',
+  ],
+  holding: [
+    'S FC_jan_2025.csv',
+    'S FC_fev_2025.csv',
+    'S FC_mar_2025.csv',
+    'S FC_abr_2025.csv',
+    'S FC_mai_2025.csv',
+    'S FC_jun_2025.csv',
+    'S FC_jul_2025.csv',
+    'S FC_ago_2025.csv',
+    'S FC_set_2025.csv',
+    'S FC_out_2025.csv',
+    'S FC_nov_2025.csv',
+    'S FC_dez_2025.csv',
+    'S FC_jan_2026.csv',
+    'S FC_fev_2026.csv',
+    'S FC_mar_2026.csv',
+    'S FC_jul_2026.csv',
+  ]
+};
+
+// MAPA DE RÓTULOS — transforma nomes de arquivo em nomes legíveis
+// Exemplo: 'FC_jan_2025.csv' → 'jan/25'
+function arquivoParaRotulo(arquivo) {
+  const meses = { jan:'jan', fev:'fev', mar:'mar', abr:'abr', mai:'mai',
+                  jun:'jun', jul:'jul', ago:'ago', set:'set', out:'out', nov:'nov', dez:'dez' };
+  const match = arquivo.match(/(\w{3})_(\d{4})/);
+  if (!match) return arquivo;
+  const mes = meses[match[1]] || match[1];
+  const ano = match[2].slice(2);
+  return `${mes}/${ano}`;
+}
+
+/* ============================================================
+  ESTADO DA APLICAÇÃO
+  
+  "Estado" em programação = os valores atuais do sistema.
+  É como um painel de controle que sabe o que está selecionado.
+============================================================ */
+let estado = {
+  empresa: 'operacional',   // empresa selecionada
+  modulo: 'financeiro',      // módulo selecionado
+  paginaFinanceiro: 1,       // qual página do financeiro está ativa
+  periodoInicio: null,       // mês de início do filtro
+  periodoFim: null,          // mês de fim do filtro
+  dados: {}                  // cache dos CSVs já carregados (evita recarregar)
+};
+
+/* ============================================================
+  FUNÇÕES DE CONTROLE
+  
+  Essas funções respondem às ações do usuário (cliques nos botões).
+============================================================ */
+
+function setEmpresa(empresa) {
+  estado.empresa = empresa;
+  estado.dados = {}; // limpa cache ao trocar de empresa
+  // Atualiza visual dos botões (qual está "ativo")
+  document.querySelectorAll('.controls .btn-group:first-child .btn')
+    .forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderModulo();
+}
+
+function setModulo(modulo) {
+  if (modulo !== 'financeiro') return; // outros módulos em desenvolvimento
+  estado.modulo = modulo;
+  renderModulo();
+}
+
+/* ============================================================
+  LEITURA DOS ARQUIVOS CSV
+  
+  Esta é a função mais importante do sistema.
+  Ela "busca" o arquivo CSV do GitHub e transforma
+  os dados brutos em um objeto JavaScript que podemos usar.
+  
+  "fetch" = buscar na internet (como um pedido numa loja)
+  "async/await" = espera a resposta antes de continuar
+============================================================ */
+async function carregarCSV(empresa, arquivo) {
+  // Cria uma chave única para o cache
+  const chave = `${empresa}/${arquivo}`;
+  
+  // Se já carregamos esse arquivo antes, usa o que está na memória
+  if (estado.dados[chave]) return estado.dados[chave];
+  
+  try {
+    const url = `${BASE_URL}/data/${empresa}/${encodeURIComponent(arquivo)}`;
+    const resposta = await fetch(url);
+    
+    if (!resposta.ok) throw new Error(`Arquivo não encontrado: ${arquivo}`);
+    
+    const texto = await resposta.text();
+    const dados = parseCSV(texto, arquivo);
+    
+    // Salva no cache para não buscar de novo
+    estado.dados[chave] = dados;
+    return dados;
+    
+  } catch (erro) {
+    console.error('Erro ao carregar CSV:', erro);
+    return null;
+  }
+}
+
+/* ============================================================
+  PARSER DO CSV
+  
+  "Parser" = leitor/interpretador
+  Esta função recebe o texto bruto do CSV e extrai
+  apenas os valores que nos interessam.
+  
+  É como um funcionário que lê uma nota fiscal bagunçada
+  e organiza os dados numa planilha limpa.
+============================================================ */
+function parseCSV(texto, arquivo) {
+  // Divide o texto em linhas
+  const linhas = texto.split('\n');
+  
+  // Extrai o período do arquivo (ex: "Janeiro/2025")
+  let periodo = arquivoParaRotulo(arquivo);
+  const linhaPeriodo = linhas.find(l => l.includes('Período:'));
+  if (linhaPeriodo) {
+    const match = linhaPeriodo.match(/Período:([^;]+)/);
+    if (match) periodo = match[1].trim();
+  }
+  
+  // Objeto que vai guardar todos os valores extraídos
+  const dados = { periodo, rotulo: arquivoParaRotulo(arquivo) };
+  
+  // Campos que queremos extrair (nome no CSV → nome no nosso sistema)
+  const CAMPOS = {
+    'Total de Vendas Recebidas': 'totalVendas',
+    '( = ) Vendas Líquidas em Caixa': 'vendasLiquidas',
+    '( - ) Compras': 'compras',
+    '( = ) Margem de Venda': 'margemVenda',
+    '( - ) Impostos Sobre Vendas': 'impostos',
+    '( +) Acordo Comercias': 'acordos',
+    '( + ) Trocas/Devoluções Recebidas': 'trocas',
+    '( = ) Sub Total de Acordos Comerciais Geral': 'subAcordos',
+    '( + ) Outras Entradas Operacionais': 'outrasEntradas',
+    '( - ) Outras Saídas Operacionais': 'outrasSaidas',
+    'Lucro Bruto': 'lucroBruto',
+    'Despesas Tributárias': 'despTributarias',
+    'Despesas Tributárias - Multas': 'despMultas',
+    'Fretes': 'fretes',
+    'Despesas C/ Pessoal': 'despPessoal',
+    'Despesas Administrativas': 'despAdmin',
+    'Despesas Indedutíveis': 'despIndedutiveis',
+    'Doações e Patrocínios': 'doacoes',
+    'Alugueis': 'alugueis',
+    'Taxas Adm de Cartões': 'taxasCartoes',
+    '( - ) Recuperação de Despesas': 'recuperacaoDespesas',
+    'Total de Custos Operacionais': 'totalCustos',
+    'LUCRO DAS OPERAÇÕES': 'lucroOperacoes',
+    'Resultado Financeiro': 'resultadoFinanceiro',
+    'Receita Financeira': 'receitaFinanceira',
+    'Despesas Financeiras': 'despFinanceiras',
+    'Lucro Antes do IR': 'lucroAntesIR',
+    'Imposto de Renda': 'impostoRenda',
+    'Lucro Líquido': 'lucroLiquido',
+    'NECESSIDADE DE C.G I': 'necessidadeCG',
+    'VARIAÇÃO DE CAIXA': 'variacaoCaixa',
+  };
+  
+  // Percorre cada linha do CSV procurando os campos que queremos
+  for (const linha of linhas) {
+    const partes = linha.split(';');
+    if (partes.length < 4) continue;
+    
+    const nomeCampo = partes[2]?.trim();
+    const valorBruto = partes[3]?.trim();
+    
+    if (nomeCampo && CAMPOS[nomeCampo]) {
+      dados[CAMPOS[nomeCampo]] = parseMoeda(valorBruto);
+    }
+  }
+  
+  return dados;
+}
+
+/* ============================================================
+  CONVERSÃO DE MOEDA
+  
+  Os CSVs usam formato brasileiro: "1.234.567,89"
+  JavaScript precisa do formato americano: "1234567.89"
+  Esta função faz essa conversão.
+============================================================ */
+function parseMoeda(texto) {
+  if (!texto || texto.trim() === '' || texto.trim() === ';') return 0;
+  // Remove pontos de milhar e troca vírgula por ponto
+  const limpo = texto.replace(/\./g, '').replace(',', '.').trim();
+  const numero = parseFloat(limpo);
+  return isNaN(numero) ? 0 : numero;
+}
+
+/* ============================================================
+  FORMATAÇÃO DE MOEDA
+  
+  Transforma o número de volta para o formato brasileiro legível.
+  Ex: 1234567.89 → "R$ 1.234.567,89"
+============================================================ */
+function formatMoeda(valor) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2
+  }).format(valor);
+}
+
+function formatPct(valor) {
+  if (!isFinite(valor)) return '—';
+  return (valor >= 0 ? '+' : '') + valor.toFixed(1) + '%';
+}
+
+/* ============================================================
+  RENDERIZAÇÃO DO MÓDULO
+  
+  "Renderizar" = desenhar na tela
+  Esta função decide o que mostrar com base no estado atual.
+============================================================ */
+function renderModulo() {
+  if (estado.modulo === 'financeiro') {
+    renderFinanceiro();
+  }
+}
+
+/* ============================================================
+  MÓDULO FINANCEIRO
+  
+  Monta a estrutura HTML do módulo financeiro com suas abas.
+============================================================ */
+function renderFinanceiro() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="module-tabs">
+      <button class="module-tab ${estado.paginaFinanceiro === 1 ? 'active' : ''}" 
+              onclick="setPaginaFinanceiro(1)">
+        Página 1 · Análise Mensal
+      </button>
+      <button class="module-tab ${estado.paginaFinanceiro === 2 ? 'active' : ''}" 
+              onclick="setPaginaFinanceiro(2)">
+        Página 2 · Comparação de Períodos
+      </button>
+    </div>
+    <div id="pagina-financeiro">
+      <div class="loading">Carregando dados financeiros...</div>
+    </div>
+  `;
+  
+  if (estado.paginaFinanceiro === 1) {
+    renderPagina1();
+  } else {
+    renderPagina2();
+  }
+}
+
+function setPaginaFinanceiro(pagina) {
+  estado.paginaFinanceiro = pagina;
+  renderFinanceiro();
+}
+
+/* ============================================================
+  PÁGINA 1 — ANÁLISE MENSAL
+  
+  Mostra a tabela com todos os meses lado a lado,
+  com filtros de período e cards de KPI no topo.
+============================================================ */
+async function renderPagina1() {
+  const container = document.getElementById('pagina-financeiro');
+  container.innerHTML = '<div class="loading">Carregando dados...</div>';
+  
+  // Decide quais arquivos carregar com base na empresa selecionada
+  let arquivos = [];
+  if (estado.empresa === 'consolidado') {
+    arquivos = ARQUIVOS.operacional;
+  } else {
+    arquivos = ARQUIVOS[estado.empresa] || [];
+  }
+  
+  if (arquivos.length === 0) {
+    container.innerHTML = '<div class="error-msg">Nenhum arquivo disponível para esta empresa.</div>';
+    return;
+  }
+  
+  // Carrega todos os CSVs em paralelo (ao mesmo tempo, mais rápido)
+  let todosDados = await Promise.all(
+    arquivos.map(arq => carregarCSV(estado.empresa === 'consolidado' ? 'operacional' : estado.empresa, arq))
+  );
+  
+  // Se for consolidado, soma com os dados da holding
+  if (estado.empresa === 'consolidado') {
+    const dadosHolding = await Promise.all(
+      ARQUIVOS.holding.map(arq => carregarCSV('holding', arq))
+    );
+    todosDados = combinarDados(todosDados, dadosHolding);
+  }
+  
+  // Remove meses que falharam ao carregar
+  todosDados = todosDados.filter(d => d !== null);
+  
+  if (todosDados.length === 0) {
+    container.innerHTML = `
+      <div class="error-msg">
+        <strong>Não foi possível carregar os dados.</strong><br>
+        Verifique se os arquivos CSV foram enviados para a pasta correta no GitHub.<br>
+        Caminho esperado: <code>data/${estado.empresa}/FC_jan_2025.csv</code>
+      </div>`;
+    return;
+  }
+  
+  // Define período padrão (todos os meses disponíveis)
+  if (!estado.periodoInicio) estado.periodoInicio = todosDados[0].rotulo;
+  if (!estado.periodoFim) estado.periodoFim = todosDados[todosDados.length - 1].rotulo;
+  
+  // Filtra pelo período selecionado
+  const idxInicio = todosDados.findIndex(d => d.rotulo === estado.periodoInicio);
+  const idxFim = todosDados.findIndex(d => d.rotulo === estado.periodoFim);
+  const dadosFiltrados = todosDados.slice(
+    idxInicio >= 0 ? idxInicio : 0,
+    idxFim >= 0 ? idxFim + 1 : todosDados.length
+  );
+  
+  // Calcula totais do período
+  const totais = calcularTotais(dadosFiltrados);
+  
+  // Monta os seletores de período
+  const opcoesSelect = todosDados.map(d =>
+    `<option value="${d.rotulo}">${d.rotulo}</option>`
+  ).join('');
+  
+  // Monta os cards de KPI
+  const variacaoPct = totais.vendasLiquidas > 0
+    ? ((totais.lucroLiquido / totais.vendasLiquidas) * 100).toFixed(1)
+    : 0;
+  
+  container.innerHTML = `
+    <!-- Barra de filtros -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label>Início</label>
+        <select id="sel-inicio" onchange="setPeriodo('inicio', this.value)">
+          ${todosDados.map(d => `<option value="${d.rotulo}" ${d.rotulo === estado.periodoInicio ? 'selected' : ''}>${d.rotulo}</option>`).join('')}
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Fim</label>
+        <select id="sel-fim" onchange="setPeriodo('fim', this.value)">
+          ${todosDados.map(d => `<option value="${d.rotulo}" ${d.rotulo === estado.periodoFim ? 'selected' : ''}>${d.rotulo}</option>`).join('')}
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Atalho</label>
+        <div class="quick-btns">
+          <button class="quick-btn" onclick="setQuick(3, ${todosDados.length})">Últ. 3 meses</button>
+          <button class="quick-btn" onclick="setQuick(6, ${todosDados.length})">Últ. 6 meses</button>
+          <button class="quick-btn" onclick="setQuick(12, ${todosDados.length})">Últ. 12 meses</button>
+          <button class="quick-btn active" onclick="setQuick(0, ${todosDados.length})">Período completo</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Cards de KPI -->
+    <div class="cards-grid">
+      <div class="kpi-card">
+        <h3>Vendas Líquidas em Caixa</h3>
+        <div class="kpi-value">${formatMoeda(totais.vendasLiquidas)}</div>
+        <div class="kpi-meta">${dadosFiltrados.length} mês(es) · Período selecionado</div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Bruto</h3>
+        <div class="kpi-value">${formatMoeda(totais.lucroBruto)}</div>
+        <div class="kpi-meta">
+          Margem: 
+          <span class="${totais.lucroBruto >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${totais.vendasLiquidas > 0 ? ((totais.lucroBruto / totais.vendasLiquidas) * 100).toFixed(1) : 0}%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro das Operações</h3>
+        <div class="kpi-value">${formatMoeda(totais.lucroOperacoes)}</div>
+        <div class="kpi-meta">
+          Margem operacional:
+          <span class="${totais.lucroOperacoes >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${totais.vendasLiquidas > 0 ? ((totais.lucroOperacoes / totais.vendasLiquidas) * 100).toFixed(1) : 0}%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Líquido</h3>
+        <div class="kpi-value ${totais.lucroLiquido >= 0 ? 'delta-good' : 'delta-bad'}">${formatMoeda(totais.lucroLiquido)}</div>
+        <div class="kpi-meta">
+          Margem líquida:
+          <span class="${totais.lucroLiquido >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${variacaoPct}%
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabela detalhada -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Demonstrativo — mês a mês</h2>
+        <span style="font-size:13px; color:var(--muted)">${dadosFiltrados.length} meses · ${dadosFiltrados[0]?.rotulo} até ${dadosFiltrados[dadosFiltrados.length-1]?.rotulo}</span>
+      </div>
+      <div class="table-wrap">
+        ${montarTabela(dadosFiltrados)}
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+  MONTA A TABELA MENSAL
+  
+  Recebe os dados de vários meses e constrói
+  o HTML da tabela comparativa.
+============================================================ */
+function montarTabela(dados) {
+  // Estrutura da tabela — grupos e suas linhas
+  const estrutura = [
+    { grupo: 'Receitas', linhas: [
+      { label: 'Total de Vendas Recebidas', campo: 'totalVendas' },
+      { label: '( - ) Recebimentos S/ Mov. Caixa', campo: null },
+      { label: '( = ) Vendas Líquidas em Caixa', campo: 'vendasLiquidas', subtotal: true },
+      { label: '( - ) Compras', campo: 'compras' },
+      { label: '( = ) Margem de Venda', campo: 'margemVenda', subtotal: true },
+    ]},
+    { grupo: 'Ajustes e Outras Receitas', linhas: [
+      { label: '( - ) Impostos Sobre Vendas', campo: 'impostos' },
+      { label: '( + ) Acordos Comerciais', campo: 'acordos' },
+      { label: '( + ) Outras Entradas Operacionais', campo: 'outrasEntradas' },
+      { label: '( - ) Outras Saídas Operacionais', campo: 'outrasSaidas' },
+      { label: 'Lucro Bruto', campo: 'lucroBruto', subtotal: true },
+    ]},
+    { grupo: 'Custos Operacionais', linhas: [
+      { label: 'Despesas Tributárias', campo: 'despTributarias' },
+      { label: 'Despesas C/ Pessoal', campo: 'despPessoal' },
+      { label: 'Despesas Administrativas', campo: 'despAdmin' },
+      { label: 'Alugueis', campo: 'alugueis' },
+      { label: 'Taxas Adm de Cartões', campo: 'taxasCartoes' },
+      { label: 'Fretes', campo: 'fretes' },
+      { label: 'Total de Custos Operacionais', campo: 'totalCustos', subtotal: true },
+      { label: 'LUCRO DAS OPERAÇÕES', campo: 'lucroOperacoes', subtotal: true },
+    ]},
+    { grupo: 'Resultado Final', linhas: [
+      { label: 'Resultado Financeiro', campo: 'resultadoFinanceiro' },
+      { label: 'Receita Financeira', campo: 'receitaFinanceira' },
+      { label: 'Despesas Financeiras', campo: 'despFinanceiras' },
+      { label: 'Lucro Antes do IR', campo: 'lucroAntesIR', subtotal: true },
+      { label: 'Imposto de Renda', campo: 'impostoRenda' },
+      { label: 'Lucro Líquido', campo: 'lucroLiquido', subtotal: true },
+      { label: 'VARIAÇÃO DE CAIXA', campo: 'variacaoCaixa', subtotal: true },
+    ]},
+  ];
+  
+  const totais = calcularTotais(dados);
+  
+  // Cabeçalho da tabela
+  let html = '<table><thead><tr>';
+  html += '<th style="min-width:280px">Descrição</th>';
+  dados.forEach(d => { html += `<th>${d.rotulo}</th>`; });
+  html += '<th class="col-total">Total / Acum.</th>';
+  html += '</tr></thead><tbody>';
+  
+  // Linhas da tabela
+  for (const grupo of estrutura) {
+    // Linha de cabeçalho do grupo
+    html += `<tr class="row-group"><th colspan="${dados.length + 2}">${grupo.grupo}</th></tr>`;
+    
+    for (const linha of grupo.linhas) {
+      const cls = linha.subtotal ? 'row-subtotal' : '';
+      html += `<tr class="${cls}">`;
+      html += `<th>${linha.label}</th>`;
+      
+      for (const mes of dados) {
+        const valor = linha.campo ? (mes[linha.campo] || 0) : 0;
+        const pct = mes.vendasLiquidas > 0 && linha.campo
+          ? ((valor / mes.vendasLiquidas) * 100).toFixed(1) + '%'
+          : '';
+        
+        html += `<td>
+          <div class="cell-value">${linha.campo ? formatMoeda(valor) : '—'}</div>
+          ${pct ? `<div class="cell-pct">${pct}</div>` : ''}
+        </td>`;
+      }
+      
+      // Coluna de total
+      const totalValor = linha.campo ? (totais[linha.campo] || 0) : 0;
+      html += `<td class="col-total">
+        <div class="cell-value">${linha.campo ? formatMoeda(totalValor) : '—'}</div>
+      </td>`;
+      
+      html += '</tr>';
+    }
+  }
+  
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ============================================================
+  PÁGINA 2 — COMPARAÇÃO DE PERÍODOS
+  
+  Permite comparar dois períodos distintos (ex: 1º sem 2025 vs 2026).
+============================================================ */
+async function renderPagina2() {
+  const container = document.getElementById('pagina-financeiro');
+  container.innerHTML = `
+    <div class="section">
+      <div class="section-head"><h2>Comparação de Períodos</h2></div>
+      <p style="color:var(--muted); font-size:14px; padding: 20px 0;">
+        Esta página está sendo migrada para o novo sistema dinâmico.<br>
+        Estará disponível em breve.
+      </p>
+    </div>
+  `;
+}
+
+/* ============================================================
+  FUNÇÕES UTILITÁRIAS
+============================================================ */
+
+// Calcula a soma de todos os campos de um conjunto de meses
+function calcularTotais(dados) {
+  const totais = {};
+  const campos = ['totalVendas','vendasLiquidas','compras','margemVenda','impostos',
+    'acordos','trocas','subAcordos','outrasEntradas','outrasSaidas','lucroBruto',
+    'despTributarias','despMultas','fretes','despPessoal','despAdmin','despIndedutiveis',
+    'doacoes','alugueis','taxasCartoes','recuperacaoDespesas','totalCustos',
+    'lucroOperacoes','resultadoFinanceiro','receitaFinanceira','despFinanceiras',
+    'lucroAntesIR','impostoRenda','lucroLiquido','necessidadeCG','variacaoCaixa'];
+  
+  for (const campo of campos) {
+    totais[campo] = dados.reduce((soma, mes) => soma + (mes[campo] || 0), 0);
+  }
+  return totais;
+}
+
+// Combina dados de duas empresas (para o consolidado)
+function combinarDados(dadosA, dadosB) {
+  // Por ora retorna apenas dadosA — será implementado na próxima versão
+  // A lógica é: para cada mês, somar campo a campo
+  return dadosA;
+}
+
+// Define o período de filtro
+function setPeriodo(tipo, valor) {
+  if (tipo === 'inicio') estado.periodoInicio = valor;
+  else estado.periodoFim = valor;
+  renderPagina1();
+}
+
+// Atalhos de período (últimos N meses)
+function setQuick(n, total) {
+  // Recarrega para pegar todos os dados disponíveis
+  estado.periodoInicio = null;
+  estado.periodoFim = null;
+  renderPagina1().then ? null : null;
+  // Implementação completa na próxima versão
+}
+
+/* ============================================================
+  INICIALIZAÇÃO
+  
+  Quando a página carrega, esta função é chamada automaticamente.
+  Ela mostra o módulo padrão (financeiro, empresa operacional).
+============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('header-info').textContent =
+    `Versão 1.0 · ${new Date().toLocaleDateString('pt-BR')}`;
+  renderModulo();
+});
+</script>
+
+</body>
+</html>
