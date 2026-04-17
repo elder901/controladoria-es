@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)file:///C:/Users/Estela%20Lopes/Downloads/index_2.html -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA Econômico — Da Essência à Decisão</title>
+<style>
+/* ============================================================
+   ESTILOS GERAIS
+   Aqui definimos as "variáveis" de cor e fonte do projeto.
+   É como criar um padrão visual que vale para todo o sistema.
+============================================================ */
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #1d4ed8;
+  --soft: #eef2ff;
+  --good: #15803d;
+  --bad: #b91c1c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
+
+/* Cabeçalho do sistema */
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header-title { font-size: 22px; font-weight: 800; color: var(--accent); }
+.header-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* Barra de controles (empresa + módulo) */
+.controls {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 24px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Botões de seleção (empresa / módulo) */
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--soft); border-color: #c7d2fe; }
+.btn.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+.btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Área principal onde o módulo é carregado */
+.main { padding: 20px 24px; }
+
+/* Tela de boas-vindas (quando nenhum módulo está ativo) */
+.welcome {
+  max-width: 600px;
+  margin: 60px auto;
+  text-align: center;
+}
+.welcome h2 { font-size: 26px; margin-bottom: 12px; color: var(--accent); }
+.welcome p { color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+
+/* ============================================================
+   MÓDULO FINANCEIRO — estilos das páginas internas
+============================================================ */
+.module-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.module-tab {
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+.module-tab.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  background: var(--card);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.toolbar-group { display: flex; flex-direction: column; gap: 6px; }
+.toolbar-group label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.toolbar-group select {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+.quick-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.quick-btn {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.quick-btn.active { background: var(--soft); border-color: #c7d2fe; color: #1e3a8a; }
+
+/* Cards de resumo (KPIs) */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.kpi-card h3 { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.kpi-meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.delta-good { color: var(--good); font-weight: 700; }
+.delta-bad { color: var(--bad); font-weight: 700; }
+
+/* Tabela de dados */
+.section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.section-head h2 { font-size: 18px; }
+.table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; background: white; }
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  white-space: nowrap;
+}
+tbody td, tbody th {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: white;
+  min-width: 280px;
+  font-size: 13px;
+  text-align: left;
+}
+tbody tr.row-group > th { background: #f8fafc; font-weight: 800; font-size: 12px; text-transform: uppercase; color: #475569; }
+tbody tr.row-subtotal > th,
+tbody tr.row-subtotal td { background: #fafafa; font-weight: 700; }
+.cell-value { font-weight: 700; white-space: nowrap; font-size: 13px; }
+.cell-pct { font-size: 11px; color: var(--muted); }
+th.col-total { position: sticky; right: 0; z-index: 4; background: #e8eefc; min-width: 160px; }
+td.col-total { position: sticky; right: 0; z-index: 1; background: #f0f5ff; box-shadow: -1px 0 0 var(--line); min-width: 160px; }
+
+/* Loading e erro */
+.loading { text-align: center; padding: 40px; color: var(--muted); font-size: 15px; }
+.error-msg { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; color: #b91c1c; margin: 16px 0; font-size: 14px; }
+
+@media (max-width: 900px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .header { padding: 12px 16px; }
+  .controls, .main { padding: 12px 16px; }
+}
+@media (max-width: 500px) {
+  .cards-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+  CABEÇALHO
+  Aparece em todas as páginas. Mostra o nome do sistema.
+============================================================ -->
+<div class="header">
+  <div>
+    <div class="header-title">DNA Econômico</div>
+    <div class="header-sub">Da Essência à Decisão · Controladoria Estratégica</div>
+  </div>
+  <div style="font-size:12px; color:var(--muted);" id="header-info">Versão 1.0 · 17/04/2026</div>
+</div>
+
+<!-- ============================================================
+  BARRA DE CONTROLES
+  Aqui o usuário escolhe: qual empresa + qual módulo.
+  Essa escolha controla tudo que aparece abaixo.
+============================================================ -->
+<div class="controls">
+  <div class="control-group">
+    <label>Empresa</label>
+    <div class="btn-group">
+      <button class="btn active" onclick="setEmpresa(&#39;operacional&#39;)">Operacional</button>
+      <button class="btn" onclick="setEmpresa(&#39;holding&#39;)">Holding</button>
+      <button class="btn" onclick="setEmpresa(&#39;consolidado&#39;)">Consolidado</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Módulo</label>
+    <div class="btn-group">
+      <button class="btn active" onclick="setModulo(&#39;financeiro&#39;)">Financeiro</button>
+      <button class="btn disabled" title="Em desenvolvimento">DRE</button>
+      <button class="btn disabled" title="Em desenvolvimento">Balanço Patrimonial</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+  ÁREA PRINCIPAL
+  Aqui o conteúdo muda conforme empresa + módulo selecionados.
+============================================================ -->
+<div class="main" id="main-content">
+    <div class="module-tabs">
+      <button class="module-tab active" onclick="setPaginaFinanceiro(1)">
+        Página 1 · Análise Mensal
+      </button>
+      <button class="module-tab " onclick="setPaginaFinanceiro(2)">
+        Página 2 · Comparação de Períodos
+      </button>
+    </div>
+    <div id="pagina-financeiro">
+    <!-- Barra de filtros -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label>Início</label>
+        <select id="sel-inicio" onchange="setPeriodo(&#39;inicio&#39;, this.value)">
+          <option value="jan/25" selected="">jan/25</option><option value="fev/25">fev/25</option><option value="mar/25">mar/25</option><option value="abr/25">abr/25</option><option value="mai/25">mai/25</option><option value="jun/25">jun/25</option><option value="jul/25">jul/25</option><option value="ago/25">ago/25</option><option value="set/25">set/25</option><option value="out/25">out/25</option><option value="nov/25">nov/25</option><option value="dez/25">dez/25</option><option value="jan/26">jan/26</option><option value="fev/26">fev/26</option><option value="mar/26">mar/26</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Fim</label>
+        <select id="sel-fim" onchange="setPeriodo(&#39;fim&#39;, this.value)">
+          <option value="jan/25">jan/25</option><option value="fev/25">fev/25</option><option value="mar/25">mar/25</option><option value="abr/25">abr/25</option><option value="mai/25">mai/25</option><option value="jun/25">jun/25</option><option value="jul/25">jul/25</option><option value="ago/25">ago/25</option><option value="set/25">set/25</option><option value="out/25">out/25</option><option value="nov/25">nov/25</option><option value="dez/25">dez/25</option><option value="jan/26">jan/26</option><option value="fev/26">fev/26</option><option value="mar/26" selected="">mar/26</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Atalho</label>
+        <div class="quick-btns">
+          <button class="quick-btn" onclick="setQuick(3, 15)">Últ. 3 meses</button>
+          <button class="quick-btn" onclick="setQuick(6, 15)">Últ. 6 meses</button>
+          <button class="quick-btn" onclick="setQuick(12, 15)">Últ. 12 meses</button>
+          <button class="quick-btn active" onclick="setQuick(0, 15)">Período completo</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Cards de KPI -->
+    <div class="cards-grid">
+      <div class="kpi-card">
+        <h3>Vendas Líquidas em Caixa</h3>
+        <div class="kpi-value">R$&nbsp;0,00</div>
+        <div class="kpi-meta">15 mês(es) · Período selecionado</div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Bruto</h3>
+        <div class="kpi-value">R$&nbsp;50.768.042,01</div>
+        <div class="kpi-meta">
+          Margem: 
+          <span class="delta-good">
+            0%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro das Operações</h3>
+        <div class="kpi-value">R$&nbsp;0,00</div>
+        <div class="kpi-meta">
+          Margem operacional:
+          <span class="delta-good">
+            0%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Líquido</h3>
+        <div class="kpi-value delta-good">R$&nbsp;0,00</div>
+        <div class="kpi-meta">
+          Margem líquida:
+          <span class="delta-good">
+            0%
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabela detalhada -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Demonstrativo — mês a mês</h2>
+        <span style="font-size:13px; color:var(--muted)">15 meses · jan/25 até mar/26</span>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th style="min-width:280px">Descrição</th><th>jan/25</th><th>fev/25</th><th>mar/25</th><th>abr/25</th><th>mai/25</th><th>jun/25</th><th>jul/25</th><th>ago/25</th><th>set/25</th><th>out/25</th><th>nov/25</th><th>dez/25</th><th>jan/26</th><th>fev/26</th><th>mar/26</th><th class="col-total">Total / Acum.</th></tr></thead><tbody><tr class="row-group"><th colspan="17">Receitas</th></tr><tr class=""><th>Total de Vendas Recebidas</th><td>
+          <div class="cell-value">R$&nbsp;14.867.747,64</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13.084.619,58</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.841.670,07</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.656.503,10</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.286.850,82</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.300.103,98</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.415.285,42</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.426.082,02</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.505.251,81</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.267.864,08</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13.687.060,77</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;17.331.844,45</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.724.530,96</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.140.848,70</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.305.945,57</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;222.842.208,97</div>
+      </td></tr><tr class=""><th>( - ) Recebimentos S/ Mov. Caixa</th><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td>
+          <div class="cell-value">—</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">—</div>
+      </td></tr><tr class="row-subtotal"><th>( = ) Vendas Líquidas em Caixa</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class=""><th>( - ) Compras</th><td>
+          <div class="cell-value">R$&nbsp;11.993.488,98</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;9.001.455,56</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.468.795,45</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;11.265.208,20</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.543.628,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.337.427,88</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;12.615.808,96</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.213.827,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.760.556,54</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;11.158.373,08</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;9.913.170,20</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;11.727.910,41</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;12.307.008,57</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;9.894.884,85</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.987.772,08</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;163.189.316,06</div>
+      </td></tr><tr class="row-subtotal"><th>( = ) Margem de Venda</th><td>
+          <div class="cell-value">R$&nbsp;2.508.476,37</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.749.511,04</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.067.583,54</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.030.262,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.399.568,27</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.553.476,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.398.890,79</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.894.714,20</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.427.899,89</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.750.620,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.415.165,61</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;5.247.836,35</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.102.969,77</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.974.483,27</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.056.385,06</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;54.577.844,22</div>
+      </td></tr><tr class="row-group"><th colspan="17">Ajustes e Outras Receitas</th></tr><tr class=""><th>( - ) Impostos Sobre Vendas</th><td>
+          <div class="cell-value">R$&nbsp;392.779,61</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;427.722,47</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;350.986,82</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;437.931,60</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;400.756,74</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;436.606,37</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;379.054,73</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;393.372,01</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;458.488,75</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;379.911,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;387.624,43</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;387.340,45</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;411.609,57</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;382.510,95</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;373.969,70</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;6.000.665,70</div>
+      </td></tr><tr class=""><th>( + ) Acordos Comerciais</th><td>
+          <div class="cell-value">R$&nbsp;47.873,35</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;38.991,65</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;9.650,89</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;40.323,84</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;37.213,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;17.883,45</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;74.964,95</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;67.007,57</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;71.831,83</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;182.799,11</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;105.090,05</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;76.499,71</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;55.229,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;77.907,27</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;52.666,42</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;955.933,94</div>
+      </td></tr><tr class=""><th>( + ) Outras Entradas Operacionais</th><td>
+          <div class="cell-value">R$&nbsp;445.108,26</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;7.758,53</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;24.122,41</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;20.448,76</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;19.018,07</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;20.344,15</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;30.096,90</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;33.800,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;32.675,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;32.418,53</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;40.952,47</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;52.260,24</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;27.729,12</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;28.256,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;32.100,98</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;847.090,34</div>
+      </td></tr><tr class=""><th>( - ) Outras Saídas Operacionais</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class="row-subtotal"><th>Lucro Bruto</th><td>
+          <div class="cell-value">R$&nbsp;2.687.342,37</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.431.333,74</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.810.950,70</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.706.432,33</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.086.791,73</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.283.328,25</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.178.938,93</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.351.566,31</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.038.126,11</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.642.270,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.188.365,32</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.979.536,85</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.804.699,37</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.731.630,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.846.728,93</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;50.768.042,01</div>
+      </td></tr><tr class="row-group"><th colspan="17">Custos Operacionais</th></tr><tr class=""><th>Despesas Tributárias</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class=""><th>Despesas C/ Pessoal</th><td>
+          <div class="cell-value">R$&nbsp;1.427.902,95</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.341.160,28</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.373.640,76</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.313.296,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.347.785,18</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.464.458,84</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.372.163,03</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.378.096,93</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.500.953,04</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.399.600,20</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.814.088,35</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.163.097,32</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.600.793,32</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.441.652,34</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.544.058,15</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;22.482.746,69</div>
+      </td></tr><tr class=""><th>Despesas Administrativas</th><td>
+          <div class="cell-value">R$&nbsp;599.626,38</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;730.975,35</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;737.634,59</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;687.984,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;594.985,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;701.011,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;731.650,42</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;743.004,51</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;843.388,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;750.873,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;757.483,40</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;866.633,11</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;784.414,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;665.799,55</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;740.277,94</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;10.935.742,50</div>
+      </td></tr><tr class=""><th>Alugueis</th><td>
+          <div class="cell-value">R$&nbsp;134.487,27</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;789.085,61</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;409.393,55</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;447.911,05</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;436.458,12</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;525.110,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;462.620,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;50.000,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;523.410,55</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;609.771,62</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;325,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;126.369,83</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.394.110,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;685.128,14</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;6.594.181,60</div>
+      </td></tr><tr class=""><th>Taxas Adm de Cartões</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class=""><th>Fretes</th><td>
+          <div class="cell-value">R$&nbsp;15.561,05</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;12.738,16</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;11.883,78</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;171,38</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.587,19</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.214,66</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.816,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.135,04</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.853,98</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;127,56</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;105,48</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;29,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;452,10</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;55.705,35</div>
+      </td></tr><tr class="row-subtotal"><th>Total de Custos Operacionais</th><td>
+          <div class="cell-value">R$&nbsp;2.369.679,43</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.096.382,52</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.726.950,73</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.642.630,72</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.564.898,91</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.885.793,73</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.899.199,56</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.362.113,25</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.100.715,27</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.968.796,76</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.778.938,60</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.263.565,32</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;2.710.607,94</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.689.527,08</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.180.795,24</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;43.240.595,06</div>
+      </td></tr><tr class="row-subtotal"><th>LUCRO DAS OPERAÇÕES</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class="row-group"><th colspan="17">Resultado Final</th></tr><tr class=""><th>Resultado Financeiro</th><td>
+          <div class="cell-value">R$&nbsp;6.327,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13.921,91</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.036,29</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.515,48</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13.084,66</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;19.376,36</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;16.975,34</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;10.987,65</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.612,25</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;17.679,49</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;19.295,63</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.751,20</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;13.892,48</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;8.490,44</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;11.200,56</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;211.147,60</div>
+      </td></tr><tr class=""><th>Receita Financeira</th><td>
+          <div class="cell-value">R$&nbsp;14.466,28</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;23.495,19</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;20.509,17</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;24.389,61</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;19.766,98</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;24.590,61</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;25.609,57</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;17.525,68</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;21.182,24</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;22.182,42</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;22.717,65</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;22.457,88</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;19.882,86</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;14.473,93</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;15.486,80</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;308.736,87</div>
+      </td></tr><tr class=""><th>Despesas Financeiras</th><td>
+          <div class="cell-value">R$&nbsp;8.138,42</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;9.573,28</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.472,88</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;8.874,13</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.682,32</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;5.214,25</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;8.634,23</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.538,03</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.569,99</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.502,93</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;3.422,02</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;6.706,68</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;5.990,38</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;5.983,49</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;4.286,24</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;97.589,27</div>
+      </td></tr><tr class="row-subtotal"><th>Lucro Antes do IR</th><td>
+          <div class="cell-value">R$&nbsp;323.990,80</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;348.873,13</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.098.036,26</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;79.317,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;534.977,48</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.416.910,88</div>
+          
+        </td><td>
+          <div class="cell-value">-R$&nbsp;703.285,29</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.000.440,71</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;952.023,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;691.152,94</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;428.722,35</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;1.731.722,73</div>
+          
+        </td><td>
+          <div class="cell-value">-R$&nbsp;892.016,09</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;50.594,22</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;677.134,25</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;7.738.594,55</div>
+      </td></tr><tr class=""><th>Imposto de Renda</th><td>
+          <div class="cell-value">R$&nbsp;35.215,15</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;62.451,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;43.069,15</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;57.827,53</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;56.057,30</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;54.744,52</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;58.031,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;71.317,37</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;51.165,57</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;69.577,93</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;66.871,53</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;40.964,21</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;49.644,75</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;56.331,50</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;97.471,46</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;870.740,97</div>
+      </td></tr><tr class="row-subtotal"><th>Lucro Líquido</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr><tr class="row-subtotal"><th>VARIAÇÃO DE CAIXA</th><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td>
+          <div class="cell-value">R$&nbsp;0,00</div>
+          
+        </td><td class="col-total">
+        <div class="cell-value">R$&nbsp;0,00</div>
+      </td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+<script>
+/* ============================================================
+  CONFIGURAÇÃO DO PROJETO
+  
+  Aqui ficam as "regras" do sistema — quais arquivos existem,
+  como eles se chamam, quais meses estão disponíveis.
+  
+  COMO ADICIONAR UM MÊS NOVO:
+  Só adicione o nome do arquivo na lista abaixo e faça
+  o upload do CSV na pasta correta do GitHub.
+  O resto o sistema faz automaticamente.
+============================================================ */
+
+// BASE_URL: endereço base onde os arquivos estão hospedados
+// Quando subir para o GitHub Pages, troque pela URL real
+const BASE_URL = 'https://raw.githubusercontent.com/elder901/controladoria-es/main';
+
+// ARQUIVOS DISPONÍVEIS POR EMPRESA
+// Chave = nome da pasta, Valor = lista de arquivos CSV disponíveis
+const ARQUIVOS = {
+  operacional: [
+    'FC jan 2025.csv',
+    'FC fev 2025.csv',
+    'FC mar 2025.csv',
+    'FC abr 2025.csv',
+    'FC mai 2025.csv',
+    'FC jun 2025.csv',
+    'FC jul 2025.csv',
+    'FC ago 2025.csv',
+    'FC set 2025.csv',
+    'FC out 2025.csv',
+    'FC nov 2025.csv',
+    'FC dez 2025.csv',
+    'FC jan 2026.csv',
+    'FC fev 2026.csv',
+    'FC mar 2026.csv',
+  ],
+  holding: [
+    'S FC jan 2025.csv',
+    'S FC fev 2025.csv',
+    'S FC mar 2025.csv',
+    'S FC abr 2025.csv',
+    'S FC mai 2025.csv',
+    'S FC jun 2025.csv',
+    'S FC jul 2025.csv',
+    'S FC ago 2025.csv',
+    'S FC set 2025.csv',
+    'S FC out 2025.csv',
+    'S FC nov 2025.csv',
+    'S FC dez 2025.csv',
+    'S FC jan 2026.csv',
+    'S FC fev 2026.csv',
+    'S FC mar 2026.csv',
+    'S FC jul 2026.csv',
+  ]
+};
+
+// MAPA DE RÓTULOS — transforma nomes de arquivo em nomes legíveis
+// Exemplo: 'FC_jan_2025.csv' → 'jan/25'
+function arquivoParaRotulo(arquivo) {
+  // Aceita "FC jan 2025.csv" ou "S FC jan 2025.csv"
+  const match = arquivo.match(/(\b(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b)\s+(\d{4})/i);
+  if (!match) return arquivo;
+  const mes = match[1].toLowerCase();
+  const ano = match[2].slice(2);
+  return `${mes}/${ano}`;
+}
+
+/* ============================================================
+  ESTADO DA APLICAÇÃO
+  
+  "Estado" em programação = os valores atuais do sistema.
+  É como um painel de controle que sabe o que está selecionado.
+============================================================ */
+let estado = {
+  empresa: 'operacional',   // empresa selecionada
+  modulo: 'financeiro',      // módulo selecionado
+  paginaFinanceiro: 1,       // qual página do financeiro está ativa
+  periodoInicio: null,       // mês de início do filtro
+  periodoFim: null,          // mês de fim do filtro
+  dados: {}                  // cache dos CSVs já carregados (evita recarregar)
+};
+
+/* ============================================================
+  FUNÇÕES DE CONTROLE
+  
+  Essas funções respondem às ações do usuário (cliques nos botões).
+============================================================ */
+
+function setEmpresa(empresa) {
+  estado.empresa = empresa;
+  estado.dados = {}; // limpa cache ao trocar de empresa
+  // Atualiza visual dos botões (qual está "ativo")
+  document.querySelectorAll('.controls .btn-group:first-child .btn')
+    .forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderModulo();
+}
+
+function setModulo(modulo) {
+  if (modulo !== 'financeiro') return; // outros módulos em desenvolvimento
+  estado.modulo = modulo;
+  renderModulo();
+}
+
+/* ============================================================
+  LEITURA DOS ARQUIVOS CSV
+  
+  Esta é a função mais importante do sistema.
+  Ela "busca" o arquivo CSV do GitHub e transforma
+  os dados brutos em um objeto JavaScript que podemos usar.
+  
+  "fetch" = buscar na internet (como um pedido numa loja)
+  "async/await" = espera a resposta antes de continuar
+============================================================ */
+async function carregarCSV(empresa, arquivo) {
+  // Cria uma chave única para o cache
+  const chave = `${empresa}/${arquivo}`;
+  
+  // Se já carregamos esse arquivo antes, usa o que está na memória
+  if (estado.dados[chave]) return estado.dados[chave];
+  
+  try {
+    const url = `${BASE_URL}/data/${empresa}/${encodeURIComponent(arquivo)}`;
+    const resposta = await fetch(url);
+    
+    if (!resposta.ok) throw new Error(`Arquivo não encontrado: ${arquivo}`);
+    
+    const texto = await resposta.text();
+    const dados = parseCSV(texto, arquivo);
+    
+    // Salva no cache para não buscar de novo
+    estado.dados[chave] = dados;
+    return dados;
+    
+  } catch (erro) {
+    console.error('Erro ao carregar CSV:', erro);
+    return null;
+  }
+}
+
+/* ============================================================
+  PARSER DO CSV
+  
+  "Parser" = leitor/interpretador
+  Esta função recebe o texto bruto do CSV e extrai
+  apenas os valores que nos interessam.
+  
+  É como um funcionário que lê uma nota fiscal bagunçada
+  e organiza os dados numa planilha limpa.
+============================================================ */
+function parseCSV(texto, arquivo) {
+  // Divide o texto em linhas
+  const linhas = texto.split('\n');
+  
+  // Extrai o período do arquivo (ex: "Janeiro/2025")
+  let periodo = arquivoParaRotulo(arquivo);
+  const linhaPeriodo = linhas.find(l => l.includes('Período:'));
+  if (linhaPeriodo) {
+    const match = linhaPeriodo.match(/Período:([^;]+)/);
+    if (match) periodo = match[1].trim();
+  }
+  
+  // Objeto que vai guardar todos os valores extraídos
+  const dados = { periodo, rotulo: arquivoParaRotulo(arquivo) };
+  
+  // Campos que queremos extrair (nome no CSV → nome no nosso sistema)
+  const CAMPOS = {
+    'Total de Vendas Recebidas': 'totalVendas',
+    '( = ) Vendas Líquidas em Caixa': 'vendasLiquidas',
+    '( - ) Compras': 'compras',
+    '( = ) Margem de Venda': 'margemVenda',
+    '( - ) Impostos Sobre Vendas': 'impostos',
+    '( +) Acordo Comercias': 'acordos',
+    '( + ) Trocas/Devoluções Recebidas': 'trocas',
+    '( = ) Sub Total de Acordos Comerciais Geral': 'subAcordos',
+    '( + ) Outras Entradas Operacionais': 'outrasEntradas',
+    '( - ) Outras Saídas Operacionais': 'outrasSaidas',
+    'Lucro Bruto': 'lucroBruto',
+    'Despesas Tributárias': 'despTributarias',
+    'Despesas Tributárias - Multas': 'despMultas',
+    'Fretes': 'fretes',
+    'Despesas C/ Pessoal': 'despPessoal',
+    'Despesas Administrativas': 'despAdmin',
+    'Despesas Indedutíveis': 'despIndedutiveis',
+    'Doações e Patrocínios': 'doacoes',
+    'Alugueis': 'alugueis',
+    'Taxas Adm de Cartões': 'taxasCartoes',
+    '( - ) Recuperação de Despesas': 'recuperacaoDespesas',
+    'Total de Custos Operacionais': 'totalCustos',
+    'LUCRO DAS OPERAÇÕES': 'lucroOperacoes',
+    'Resultado Financeiro': 'resultadoFinanceiro',
+    'Receita Financeira': 'receitaFinanceira',
+    'Despesas Financeiras': 'despFinanceiras',
+    'Lucro Antes do IR': 'lucroAntesIR',
+    'Imposto de Renda': 'impostoRenda',
+    'Lucro Líquido': 'lucroLiquido',
+    'NECESSIDADE DE C.G I': 'necessidadeCG',
+    'VARIAÇÃO DE CAIXA': 'variacaoCaixa',
+  };
+  
+  // Percorre cada linha do CSV procurando os campos que queremos
+  for (const linha of linhas) {
+    const partes = linha.split(';');
+    if (partes.length < 4) continue;
+    
+    const nomeCampo = partes[2]?.trim();
+    const valorBruto = partes[3]?.trim();
+    
+    if (nomeCampo && CAMPOS[nomeCampo]) {
+      dados[CAMPOS[nomeCampo]] = parseMoeda(valorBruto);
+    }
+  }
+  
+  return dados;
+}
+
+/* ============================================================
+  CONVERSÃO DE MOEDA
+  
+  Os CSVs usam formato brasileiro: "1.234.567,89"
+  JavaScript precisa do formato americano: "1234567.89"
+  Esta função faz essa conversão.
+============================================================ */
+function parseMoeda(texto) {
+  if (!texto || texto.trim() === '' || texto.trim() === ';') return 0;
+  // Remove pontos de milhar e troca vírgula por ponto
+  const limpo = texto.replace(/\./g, '').replace(',', '.').trim();
+  const numero = parseFloat(limpo);
+  return isNaN(numero) ? 0 : numero;
+}
+
+/* ============================================================
+  FORMATAÇÃO DE MOEDA
+  
+  Transforma o número de volta para o formato brasileiro legível.
+  Ex: 1234567.89 → "R$ 1.234.567,89"
+============================================================ */
+function formatMoeda(valor) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2
+  }).format(valor);
+}
+
+function formatPct(valor) {
+  if (!isFinite(valor)) return '—';
+  return (valor >= 0 ? '+' : '') + valor.toFixed(1) + '%';
+}
+
+/* ============================================================
+  RENDERIZAÇÃO DO MÓDULO
+  
+  "Renderizar" = desenhar na tela
+  Esta função decide o que mostrar com base no estado atual.
+============================================================ */
+function renderModulo() {
+  if (estado.modulo === 'financeiro') {
+    renderFinanceiro();
+  }
+}
+
+/* ============================================================
+  MÓDULO FINANCEIRO
+  
+  Monta a estrutura HTML do módulo financeiro com suas abas.
+============================================================ */
+function renderFinanceiro() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="module-tabs">
+      <button class="module-tab ${estado.paginaFinanceiro === 1 ? 'active' : ''}" 
+              onclick="setPaginaFinanceiro(1)">
+        Página 1 · Análise Mensal
+      </button>
+      <button class="module-tab ${estado.paginaFinanceiro === 2 ? 'active' : ''}" 
+              onclick="setPaginaFinanceiro(2)">
+        Página 2 · Comparação de Períodos
+      </button>
+    </div>
+    <div id="pagina-financeiro">
+      <div class="loading">Carregando dados financeiros...</div>
+    </div>
+  `;
+  
+  if (estado.paginaFinanceiro === 1) {
+    renderPagina1();
+  } else {
+    renderPagina2();
+  }
+}
+
+function setPaginaFinanceiro(pagina) {
+  estado.paginaFinanceiro = pagina;
+  renderFinanceiro();
+}
+
+/* ============================================================
+  PÁGINA 1 — ANÁLISE MENSAL
+  
+  Mostra a tabela com todos os meses lado a lado,
+  com filtros de período e cards de KPI no topo.
+============================================================ */
+async function renderPagina1() {
+  const container = document.getElementById('pagina-financeiro');
+  container.innerHTML = '<div class="loading">Carregando dados...</div>';
+  
+  // Decide quais arquivos carregar com base na empresa selecionada
+  let arquivos = [];
+  if (estado.empresa === 'consolidado') {
+    arquivos = ARQUIVOS.operacional;
+  } else {
+    arquivos = ARQUIVOS[estado.empresa] || [];
+  }
+  
+  if (arquivos.length === 0) {
+    container.innerHTML = '<div class="error-msg">Nenhum arquivo disponível para esta empresa.</div>';
+    return;
+  }
+  
+  // Carrega todos os CSVs em paralelo (ao mesmo tempo, mais rápido)
+  let todosDados = await Promise.all(
+    arquivos.map(arq => carregarCSV(estado.empresa === 'consolidado' ? 'operacional' : estado.empresa, arq))
+  );
+  
+  // Se for consolidado, soma com os dados da holding
+  if (estado.empresa === 'consolidado') {
+    const dadosHolding = await Promise.all(
+      ARQUIVOS.holding.map(arq => carregarCSV('holding', arq))
+    );
+    todosDados = combinarDados(todosDados, dadosHolding);
+  }
+  
+  // Remove meses que falharam ao carregar
+  todosDados = todosDados.filter(d => d !== null);
+  
+  if (todosDados.length === 0) {
+    container.innerHTML = `
+      <div class="error-msg">
+        <strong>Não foi possível carregar os dados.</strong><br>
+        Verifique se os arquivos CSV foram enviados para a pasta correta no GitHub.<br>
+        Caminho esperado: <code>data/${estado.empresa}/FC_jan_2025.csv</code>
+      </div>`;
+    return;
+  }
+  
+  // Define período padrão (todos os meses disponíveis)
+  if (!estado.periodoInicio) estado.periodoInicio = todosDados[0].rotulo;
+  if (!estado.periodoFim) estado.periodoFim = todosDados[todosDados.length - 1].rotulo;
+  
+  // Filtra pelo período selecionado
+  const idxInicio = todosDados.findIndex(d => d.rotulo === estado.periodoInicio);
+  const idxFim = todosDados.findIndex(d => d.rotulo === estado.periodoFim);
+  const dadosFiltrados = todosDados.slice(
+    idxInicio >= 0 ? idxInicio : 0,
+    idxFim >= 0 ? idxFim + 1 : todosDados.length
+  );
+  
+  // Calcula totais do período
+  const totais = calcularTotais(dadosFiltrados);
+  
+  // Monta os seletores de período
+  const opcoesSelect = todosDados.map(d =>
+    `<option value="${d.rotulo}">${d.rotulo}</option>`
+  ).join('');
+  
+  // Monta os cards de KPI
+  const variacaoPct = totais.vendasLiquidas > 0
+    ? ((totais.lucroLiquido / totais.vendasLiquidas) * 100).toFixed(1)
+    : 0;
+  
+  container.innerHTML = `
+    <!-- Barra de filtros -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label>Início</label>
+        <select id="sel-inicio" onchange="setPeriodo('inicio', this.value)">
+          ${todosDados.map(d => `<option value="${d.rotulo}" ${d.rotulo === estado.periodoInicio ? 'selected' : ''}>${d.rotulo}</option>`).join('')}
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Fim</label>
+        <select id="sel-fim" onchange="setPeriodo('fim', this.value)">
+          ${todosDados.map(d => `<option value="${d.rotulo}" ${d.rotulo === estado.periodoFim ? 'selected' : ''}>${d.rotulo}</option>`).join('')}
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Atalho</label>
+        <div class="quick-btns">
+          <button class="quick-btn" onclick="setQuick(3, ${todosDados.length})">Últ. 3 meses</button>
+          <button class="quick-btn" onclick="setQuick(6, ${todosDados.length})">Últ. 6 meses</button>
+          <button class="quick-btn" onclick="setQuick(12, ${todosDados.length})">Últ. 12 meses</button>
+          <button class="quick-btn active" onclick="setQuick(0, ${todosDados.length})">Período completo</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Cards de KPI -->
+    <div class="cards-grid">
+      <div class="kpi-card">
+        <h3>Vendas Líquidas em Caixa</h3>
+        <div class="kpi-value">${formatMoeda(totais.vendasLiquidas)}</div>
+        <div class="kpi-meta">${dadosFiltrados.length} mês(es) · Período selecionado</div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Bruto</h3>
+        <div class="kpi-value">${formatMoeda(totais.lucroBruto)}</div>
+        <div class="kpi-meta">
+          Margem: 
+          <span class="${totais.lucroBruto >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${totais.vendasLiquidas > 0 ? ((totais.lucroBruto / totais.vendasLiquidas) * 100).toFixed(1) : 0}%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro das Operações</h3>
+        <div class="kpi-value">${formatMoeda(totais.lucroOperacoes)}</div>
+        <div class="kpi-meta">
+          Margem operacional:
+          <span class="${totais.lucroOperacoes >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${totais.vendasLiquidas > 0 ? ((totais.lucroOperacoes / totais.vendasLiquidas) * 100).toFixed(1) : 0}%
+          </span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <h3>Lucro Líquido</h3>
+        <div class="kpi-value ${totais.lucroLiquido >= 0 ? 'delta-good' : 'delta-bad'}">${formatMoeda(totais.lucroLiquido)}</div>
+        <div class="kpi-meta">
+          Margem líquida:
+          <span class="${totais.lucroLiquido >= 0 ? 'delta-good' : 'delta-bad'}">
+            ${variacaoPct}%
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabela detalhada -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Demonstrativo — mês a mês</h2>
+        <span style="font-size:13px; color:var(--muted)">${dadosFiltrados.length} meses · ${dadosFiltrados[0]?.rotulo} até ${dadosFiltrados[dadosFiltrados.length-1]?.rotulo}</span>
+      </div>
+      <div class="table-wrap">
+        ${montarTabela(dadosFiltrados)}
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+  MONTA A TABELA MENSAL
+  
+  Recebe os dados de vários meses e constrói
+  o HTML da tabela comparativa.
+============================================================ */
+function montarTabela(dados) {
+  // Estrutura da tabela — grupos e suas linhas
+  const estrutura = [
+    { grupo: 'Receitas', linhas: [
+      { label: 'Total de Vendas Recebidas', campo: 'totalVendas' },
+      { label: '( - ) Recebimentos S/ Mov. Caixa', campo: null },
+      { label: '( = ) Vendas Líquidas em Caixa', campo: 'vendasLiquidas', subtotal: true },
+      { label: '( - ) Compras', campo: 'compras' },
+      { label: '( = ) Margem de Venda', campo: 'margemVenda', subtotal: true },
+    ]},
+    { grupo: 'Ajustes e Outras Receitas', linhas: [
+      { label: '( - ) Impostos Sobre Vendas', campo: 'impostos' },
+      { label: '( + ) Acordos Comerciais', campo: 'acordos' },
+      { label: '( + ) Outras Entradas Operacionais', campo: 'outrasEntradas' },
+      { label: '( - ) Outras Saídas Operacionais', campo: 'outrasSaidas' },
+      { label: 'Lucro Bruto', campo: 'lucroBruto', subtotal: true },
+    ]},
+    { grupo: 'Custos Operacionais', linhas: [
+      { label: 'Despesas Tributárias', campo: 'despTributarias' },
+      { label: 'Despesas C/ Pessoal', campo: 'despPessoal' },
+      { label: 'Despesas Administrativas', campo: 'despAdmin' },
+      { label: 'Alugueis', campo: 'alugueis' },
+      { label: 'Taxas Adm de Cartões', campo: 'taxasCartoes' },
+      { label: 'Fretes', campo: 'fretes' },
+      { label: 'Total de Custos Operacionais', campo: 'totalCustos', subtotal: true },
+      { label: 'LUCRO DAS OPERAÇÕES', campo: 'lucroOperacoes', subtotal: true },
+    ]},
+    { grupo: 'Resultado Final', linhas: [
+      { label: 'Resultado Financeiro', campo: 'resultadoFinanceiro' },
+      { label: 'Receita Financeira', campo: 'receitaFinanceira' },
+      { label: 'Despesas Financeiras', campo: 'despFinanceiras' },
+      { label: 'Lucro Antes do IR', campo: 'lucroAntesIR', subtotal: true },
+      { label: 'Imposto de Renda', campo: 'impostoRenda' },
+      { label: 'Lucro Líquido', campo: 'lucroLiquido', subtotal: true },
+      { label: 'VARIAÇÃO DE CAIXA', campo: 'variacaoCaixa', subtotal: true },
+    ]},
+  ];
+  
+  const totais = calcularTotais(dados);
+  
+  // Cabeçalho da tabela
+  let html = '<table><thead><tr>';
+  html += '<th style="min-width:280px">Descrição</th>';
+  dados.forEach(d => { html += `<th>${d.rotulo}</th>`; });
+  html += '<th class="col-total">Total / Acum.</th>';
+  html += '</tr></thead><tbody>';
+  
+  // Linhas da tabela
+  for (const grupo of estrutura) {
+    // Linha de cabeçalho do grupo
+    html += `<tr class="row-group"><th colspan="${dados.length + 2}">${grupo.grupo}</th></tr>`;
+    
+    for (const linha of grupo.linhas) {
+      const cls = linha.subtotal ? 'row-subtotal' : '';
+      html += `<tr class="${cls}">`;
+      html += `<th>${linha.label}</th>`;
+      
+      for (const mes of dados) {
+        const valor = linha.campo ? (mes[linha.campo] || 0) : 0;
+        const pct = mes.vendasLiquidas > 0 && linha.campo
+          ? ((valor / mes.vendasLiquidas) * 100).toFixed(1) + '%'
+          : '';
+        
+        html += `<td>
+          <div class="cell-value">${linha.campo ? formatMoeda(valor) : '—'}</div>
+          ${pct ? `<div class="cell-pct">${pct}</div>` : ''}
+        </td>`;
+      }
+      
+      // Coluna de total
+      const totalValor = linha.campo ? (totais[linha.campo] || 0) : 0;
+      html += `<td class="col-total">
+        <div class="cell-value">${linha.campo ? formatMoeda(totalValor) : '—'}</div>
+      </td>`;
+      
+      html += '</tr>';
+    }
+  }
+  
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ============================================================
+  PÁGINA 2 — COMPARAÇÃO DE PERÍODOS
+  
+  Permite comparar dois períodos distintos (ex: 1º sem 2025 vs 2026).
+============================================================ */
+async function renderPagina2() {
+  const container = document.getElementById('pagina-financeiro');
+  container.innerHTML = `
+    <div class="section">
+      <div class="section-head"><h2>Comparação de Períodos</h2></div>
+      <p style="color:var(--muted); font-size:14px; padding: 20px 0;">
+        Esta página está sendo migrada para o novo sistema dinâmico.<br>
+        Estará disponível em breve.
+      </p>
+    </div>
+  `;
+}
+
+/* ============================================================
+  FUNÇÕES UTILITÁRIAS
+============================================================ */
+
+// Calcula a soma de todos os campos de um conjunto de meses
+function calcularTotais(dados) {
+  const totais = {};
+  const campos = ['totalVendas','vendasLiquidas','compras','margemVenda','impostos',
+    'acordos','trocas','subAcordos','outrasEntradas','outrasSaidas','lucroBruto',
+    'despTributarias','despMultas','fretes','despPessoal','despAdmin','despIndedutiveis',
+    'doacoes','alugueis','taxasCartoes','recuperacaoDespesas','totalCustos',
+    'lucroOperacoes','resultadoFinanceiro','receitaFinanceira','despFinanceiras',
+    'lucroAntesIR','impostoRenda','lucroLiquido','necessidadeCG','variacaoCaixa'];
+  
+  for (const campo of campos) {
+    totais[campo] = dados.reduce((soma, mes) => soma + (mes[campo] || 0), 0);
+  }
+  return totais;
+}
+
+// Combina dados de duas empresas (para o consolidado)
+function combinarDados(dadosA, dadosB) {
+  // Por ora retorna apenas dadosA — será implementado na próxima versão
+  // A lógica é: para cada mês, somar campo a campo
+  return dadosA;
+}
+
+// Define o período de filtro
+function setPeriodo(tipo, valor) {
+  if (tipo === 'inicio') estado.periodoInicio = valor;
+  else estado.periodoFim = valor;
+  renderPagina1();
+}
+
+// Atalhos de período (últimos N meses)
+function setQuick(n, total) {
+  // Recarrega para pegar todos os dados disponíveis
+  estado.periodoInicio = null;
+  estado.periodoFim = null;
+  renderPagina1().then ? null : null;
+  // Implementação completa na próxima versão
+}
+
+/* ============================================================
+  INICIALIZAÇÃO
+  
+  Quando a página carrega, esta função é chamada automaticamente.
+  Ela mostra o módulo padrão (financeiro, empresa operacional).
+============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('header-info').textContent =
+    `Versão 1.0 · ${new Date().toLocaleDateString('pt-BR')}`;
+  renderModulo();
+});
+</script>
+
+
+
+</body></html>
