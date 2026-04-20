@@ -115,7 +115,6 @@ tbody tr.rs td.ctot{background:#e4edff}
   </div>
 </div></div>
 <div class="wrap"><div class="main" id="main"></div></div>
-<script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 // Sempre usar raw.githubusercontent — funciona tanto local quanto no GitHub Pages
 // O CORS não é problema pois raw.githubusercontent tem os headers corretos para leitura
@@ -335,7 +334,7 @@ function buildCards(ult,pen,penLabel,isAnoAnt){
         <span style="font-size:11px;color:var(--muted)">P(%) ${ult.rot}: </span><strong>${fPS(pct)}%</strong>
         ${pen?`<br><span style="font-size:11px;color:var(--muted)">${compTipo} (${compLabel}):</span><br>${varStr}`:''}
       </div>
-      <div class="kchartbox"><canvas id="${it.id}" height="44" role="img" aria-label="Sparkline ${it.t}"></canvas></div>
+      <div class="kchartbox" id="${it.id}"></div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -346,9 +345,23 @@ function buildSparks(todos,sl){
   campos.forEach((c,i)=>{
     const el=document.getElementById('sp'+i);if(!el)return;
     const vals=todos.map(d=>d[c]||0);
-    new Chart(el,{type:'line',data:{labels:todos.map(d=>d.rot),datasets:[{data:vals,borderColor:cores[i],borderWidth:1.5,pointRadius:0,fill:false,tension:0.3,
-      segment:{borderColor:ctx=>ctx.p0DataIndex>=iS&&ctx.p0DataIndex<=iE?cores[i]:cores[i]+'44'}}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
+    const W=el.clientWidth||200,H=42;
+    const min=Math.min(...vals),max=Math.max(...vals);
+    const range=max-min||1;
+    const px=(v,idx)=>{
+      const x=(idx/(vals.length-1))*(W-4)+2;
+      const y=H-2-((v-min)/range)*(H-4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    };
+    // Linha completa (desbotada)
+    const ptsFull=vals.map((v,j)=>px(v,j)).join(' ');
+    // Linha do período selecionado (colorida)
+    const sliceVals=vals.slice(iS,iE+1);
+    const ptsSlice=sliceVals.map((v,j)=>px(v,iS+j)).join(' ');
+    el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <polyline points="${ptsFull}" fill="none" stroke="${cores[i]}33" stroke-width="1.5" stroke-linejoin="round"/>
+      <polyline points="${ptsSlice}" fill="none" stroke="${cores[i]}" stroke-width="2" stroke-linejoin="round"/>
+    </svg>`;
   });
 }
 function buildAnalysis(ult,pen,sl,tot){
