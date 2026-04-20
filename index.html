@@ -182,7 +182,7 @@ const CM={
   'Entradas de Correspondentes':'entCorresp',
   'Saída de Correspondentes':'saiCorresp',
 };
-let S={emp:'operacional',pag:1,ini:null,fim:null,cache:{}};
+let S={emp:'operacional',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null};
 const fM=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}).format(v||0);
 const fP=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':(v>=0?'+':'')+v.toFixed(c)+'%';
 const fPS=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':v.toFixed(c)+'%';
