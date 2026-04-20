@@ -117,9 +117,9 @@ tbody tr.rs td.ctot{background:#e4edff}
 <div class="wrap"><div class="main" id="main"></div></div>
 <script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const BASE = window.location.protocol === 'file:'
-  ? 'https://raw.githubusercontent.com/elder901/controladoria-es/main'
-  : '';  // caminho relativo quando no GitHub Pages
+// Sempre usar raw.githubusercontent — funciona tanto local quanto no GitHub Pages
+// O CORS não é problema pois raw.githubusercontent tem os headers corretos para leitura
+const BASE = 'https://raw.githubusercontent.com/elder901/controladoria-es/main';
 const ARQ={
   operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv'],
   holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC jul 2026.csv']
