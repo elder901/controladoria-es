@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DNA Econômico — Da Essência à Decisão</title>
+<script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--soft:#eef2ff;--good:#15803d;--bad:#b91c1c}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);font-size:13px}
+.wrap{max-width:1800px;margin:0 auto}
+.header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.header-title{font-size:18px;font-weight:800;color:var(--accent)}
+.header-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.controls{background:var(--card);border-bottom:1px solid var(--line);padding:8px 20px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.cg{display:flex;flex-direction:column;gap:3px}
+.cg label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.btngrp{display:flex;gap:5px;flex-wrap:wrap}
+.btn{padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--soft);border-color:#c7d2fe}
+.btn.active{background:var(--soft);border-color:#c7d2fe;color:#1e3a8a}
+.btn.off{opacity:.4;cursor:not-allowed}
+.main{padding:12px 20px}
+.mtabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.mtab{padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:12px;font-weight:700}
+.mtab.active{background:var(--soft);border-color:#c7d2fe;color:#1e3a8a}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;background:var(--card);padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+.tg{display:flex;flex-direction:column;gap:3px}
+.tg label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase}
+.tg select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer}
+.qbtns{display:flex;gap:5px;flex-wrap:wrap}
+.qbtn{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.qbtn.active{background:var(--soft);border-color:#c7d2fe;color:#1e3a8a}
+/* Cards — 4 colunas fixas, compactas */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-height:150px;display:flex;flex-direction:column}
+.kcard h3{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.kval{font-size:20px;font-weight:800;margin-bottom:3px}
+.kmeta{font-size:11px;line-height:1.45;color:var(--muted);flex:1}
+.kchartbox{margin-top:6px;height:42px;border-top:1px dashed var(--line);padding-top:5px}
+.good{color:var(--good);font-weight:700}
+.bad{color:var(--bad);font-weight:700}
+.neutral{color:#374151;font-weight:700}
+/* Análise — 4 colunas fixas */
+.analysis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.aitem{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.aitem .ak{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700}
+.aitem .av{font-size:16px;font-weight:800;margin:3px 0}
+.aitem .as{font-size:11px;line-height:1.4;color:var(--muted)}
+.section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.shead h2{font-size:15px}
+.legend{font-size:11px;color:var(--muted)}
+/* Tabela — compacta, coluna descrição menor */
+.twrap{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:560px}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;background:#fff}
+thead th{position:sticky;top:0;z-index:3;background:#f8fafc;border-bottom:1px solid var(--line);padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#475569;white-space:nowrap;text-align:center}
+tbody td,tbody th{border-bottom:1px solid #f1f5f9;padding:7px 10px;vertical-align:middle}
+tbody th{position:sticky;left:0;z-index:2;background:#fff;min-width:220px;max-width:220px;font-size:12px;text-align:left}
+tbody td{text-align:center}
+tbody tr.rg>th{background:#f8fafc;font-weight:800;font-size:10px;text-transform:uppercase;color:#475569;letter-spacing:.04em}
+tbody tr.rs>th,tbody tr.rs td{background:#fafafa;font-weight:700}
+.cv{font-weight:700;white-space:nowrap;font-size:12px}
+.cp{font-size:10px;color:var(--muted)}
+th.ctot{position:sticky;right:0;z-index:4;background:#e8eefc;min-width:140px;text-align:center}
+td.ctot{position:sticky;right:0;z-index:1;background:#f0f5ff;box-shadow:-1px 0 0 var(--line);min-width:140px;text-align:center}
+tbody tr.rs td.ctot{background:#e4edff}
+.p2grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.ccard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.ccard h3{font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.citem{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.citem:last-child{border-bottom:none}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bar-row>div:first-child{font-size:12px;min-width:160px}
+.bar-track{flex:1;display:flex;flex-direction:column;gap:3px}
+.bar-a{height:6px;background:rgba(29,78,216,.75);border-radius:3px}
+.bar-b{height:6px;background:rgba(15,118,110,.65);border-radius:3px}
+.bar-leg{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:8px}
+.bar-leg span{display:flex;align-items:center;gap:4px}
+.bar-leg i{width:12px;height:6px;border-radius:2px;display:inline-block}
+.up{color:var(--good);font-weight:700;font-size:12px}
+.down{color:var(--bad);font-weight:700;font-size:12px}
+.sumtext p{margin-bottom:7px;font-size:12px;line-height:1.55}
+.loading{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+.errmsg{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;color:#b91c1c;font-size:12px;margin:10px 0}
+@media(max-width:1200px){.cards{grid-template-columns:repeat(4,1fr)}.analysis{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.analysis{grid-template-columns:repeat(2,1fr)}.p2grid{grid-template-columns:1fr}}
+@media(max-width:500px){.cards,.analysis{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<script>
+// Funções críticas declaradas imediatamente - antes do HTML renderizar
+// Isso garante que onclick nos botões estáticos funcionem
+var S={emp:'operacional',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null};
+function setEmp(e,btn){
+  S.emp=e;S.ini=null;S.fim=null;S.cache={};
+  S.p2aS=null;S.p2aE=null;S.p2bS=null;S.p2bE=null;
+  document.querySelectorAll('#btnEmp .btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(typeof render==='function')render();
+}
+</script>
+<div class="wrap"><div class="header">
+  <div>
+    <div class="header-title">DNA Econômico</div>
+    <div class="header-sub">Da Essência à Decisão · Controladoria Estratégica</div>
+  </div>
+  <div style="font-size:11px;color:var(--muted)" id="hinfo"></div>
+</div></div>
+<div class="wrap"><div class="controls">
+  <div class="cg">
+    <label>Empresa</label>
+    <div class="btngrp" id="btnEmp">
+      <button class="btn active" onclick="setEmp('operacional',this)">Operacional</button>
+      <button class="btn" onclick="setEmp('holding',this)">Holding</button>
+      <button class="btn" onclick="setEmp('consolidado',this)">Consolidado</button>
+    </div>
+  </div>
+  <div class="cg">
+    <label>Módulo</label>
+    <div class="btngrp">
+      <button class="btn active">Financeiro</button>
+      <button class="btn off" title="Em breve">DRE</button>
+      <button class="btn off" title="Em breve">Balanço Patrimonial</button>
+    </div>
+  </div>
+</div></div>
+<div class="wrap"><div class="main" id="main">
+<script>
+// Detecta automaticamente se está rodando local ou no GitHub Pages
+const BASE = window.location.protocol === 'file:'
+  ? 'https://raw.githubusercontent.com/elder901/controladoria-es/main'
+  : '';  // caminho relativo quando no GitHub Pages
+const ARQ={
+  operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv'],
+  holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC jul 2026.csv']
+};
+const CM={
+  'Total de Vendas Recebidas':'totVendas',
+  '( - ) Recebimentos S/ Movimento de Caixa':'recSemMov',
+  '( - ) Deduções':'deducoes',
+  '( = ) Vendas Líquidas em Caixa':'vlc',
+  '( - ) Compras':'compras',
+  '( = ) Margem de Venda':'margemV',
+  '( - ) Impostos Sobre Vendas':'impostos',
+  '( +) Acordo Comercias':'acordos',
+  '( + ) Trocas/Devoluções Recebidas':'trocas',
+  '( = ) Sub Total de Acordos Comerciais Geral':'subAcordos',
+  '( + ) Outras Entradas Operacionais':'outEnt',
+  '( - ) Outras Saídas Operacionais':'outSai',
+  '( + ) Cheques Devolvidos Recebidos':'chqRec',
+  '( - ) Cheques Devolvidos':'chqDev',
+  'Lucro Bruto':'lucroBruto',
+  'Despesas Tributárias':'despTrib',
+  'Despesas Tributárias - Multas':'despMult',
+  'Fretes':'fretes',
+  'Despesas C/ Pessoal':'despPess',
+  'Despesas Administrativas':'despAdm',
+  'Despesas Indedutíveis':'despInded',
+  'Doações e Patrocínios':'doacoes',
+  'Alugueis':'alugueis',
+  'Taxas Adm de Cartões':'taxCart',
+  '( - ) Recuperação de Despesas':'recupDesp',
+  'Total de Custos Operacionais':'totCustos',
+  'LUCRO DAS OPERAÇÕES':'lucroOp',
+  'Resultado Financeiro':'resFin',
+  'Receita Financeira':'recFin',
+  'Despesas Financeiras':'despFin',
+  'Lucro Antes do IR':'lucroAIR',
+  'Imposto de Renda':'IR',
+  'Lucro Líquido':'lucroLiq',
+  'Fluxo dos Investimentos & Financiamentos':'fluxoInvest',
+  'SAÍDAS':'fluxoSaidas',
+  '( - ) Empréstimos Bancários':'emprestimos',
+  '( - ) Parcelamentos':'parcelamentos',
+  '( - ) Imobilizado/Investimentos':'imobilizado',
+  '( - )  Juros S/ Empréstimos':'jurosEmprestimos',
+  'ENTRADAS':'fluxoEntradas',
+  '( + )  Empréstimos':'emprestimosEnt',
+  '( + )  Venda Imobilizados':'vendaImob',
+  '( + )   Dividendos Outras Empresas':'dividendos',
+  'Fluxo dos Adiantamentos':'fluxoAdiant',
+  '( - ) Adiantamentos Efetuados':'adiantEfet',
+  '( + ) Adiantamentos Recebidos':'adiantReceb',
+  'Fluxo dos Cheques Emitidos':'fluxoCheques',
+  '( - ) Cheques Compensados':'chqCompensados',
+  '( + ) Cheques Emitidos':'chqEmitidos',
+  'NECESSIDADE DE C.G I':'necCG',
+  'Acionistas':'acionistas',
+  'Recurso de Ligadas':'recursoLigadas',
+  'Recurso Enviado a Ligadas':'recursoEnviado',
+  'VARIAÇÃO DE CAIXA':'varCaixa',
+  'Entradas de Correspondentes':'entCorresp',
+  'Saída de Correspondentes':'saiCorresp',
+};
+let S={emp:'operacional',pag:1,ini:null,fim:null,cache:{}};
+const fM=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}).format(v||0);
+const fP=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':(v>=0?'+':'')+v.toFixed(c)+'%';
+const fPS=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':v.toFixed(c)+'%';
+const rot=a=>{const m=a.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b\s+(\d{4})/i);return m?m[1].toLowerCase()+'/'+m[2].slice(2):a;};
+const dcls=v=>v>0?'good':v<0?'bad':'neutral';
+
+async function loadCSV(emp,arq){
+  const k=emp+'/'+arq;
+  if(S.cache[k])return S.cache[k];
+  try{
+    const r=await fetch(`${BASE}/data/${emp}/${encodeURIComponent(arq)}`);
+    if(!r.ok)return null;
+    const buf=await r.arrayBuffer();
+    let txt;
+    try{txt=new TextDecoder('utf-8').decode(buf);}catch(e){txt=new TextDecoder('latin-1').decode(buf);}
+    const d=parseCSV(txt,arq);
+    S.cache[k]=d;return d;
+  }catch(e){return null;}
+}
+function parseCSV(txt,arq){
+  const lines=txt.split(/\r?\n/);
+  const d={rot:rot(arq),arq};
+  // Período da linha 1
+  if(lines[1]){const m=lines[1].match(/Per[^:]*:([^;]+)/);if(m)d.periodo=m[1].trim();}
+  // Leitura por posição — imune a encoding
+  const L={
+    4:'vendasDinheiro',5:'vendasCredito',6:'vendasDebito',7:'vendasClientes',
+    8:'vendasPix',9:'vendasCheques',
+    10:'totVendas',11:'recSemMov',12:'deducoes',13:'vlc',
+    14:'compras',15:'margemV',16:'impostos',17:'acordos',18:'trocas',
+    19:'subAcordos',20:'outEnt',21:'outSai',22:'chqRec',23:'chqDev',
+    24:'lucroBruto',26:'despTrib',27:'despMult',28:'fretes',29:'despPess',
+    30:'despAdm',31:'despInded',32:'doacoes',33:'alugueis',34:'taxCart',
+    35:'recupDesp',36:'totCustos',37:'lucroOp',38:'resFin',39:'recFin',
+    40:'despFin',41:'lucroAIR',42:'IR',43:'lucroLiq',
+    44:'fluxoInvest',45:'fluxoSaidas',46:'emprestimos',47:'parcelamentos',
+    48:'imobilizado',49:'jurosEmprestimos',
+    50:'fluxoEntradas',51:'emprestimosEnt',52:'vendaImob',53:'dividendos',
+    54:'fluxoAdiant',55:'adiantEfet',56:'adiantReceb',
+    57:'fluxoCheques',58:'chqCompensados',59:'chqEmitidos',
+    60:'necCG',61:'acionistas',62:'recursoLigadas',63:'recursoEnviado',
+    64:'varCaixa',65:'resgate',66:'aplicacao',
+    67:'entCorresp',68:'saiCorresp'};
+  for(const [i,c] of Object.entries(L)){
+    const l=lines[+i];if(!l)continue;
+    const p=l.split(';');if(p.length>3)d[c]=parseMoeda(p[3]);
+  }
+  return d;
+}
+function parseMoeda(t){if(!t||!t.trim())return 0;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;}
+function soma(dados){
+  const t={months:dados.length};
+  for(const k of Object.values(CM))t[k]=dados.reduce((s,d)=>s+(d[k]||0),0);
+  return t;
+}
+function combinar(op,hd){
+  // Consolidado = soma apenas os meses que existem nos DOIS (interseção)
+  // Isso garante que não aparece mês só da holding (como jul/26) sem o operacional
+  const rotsHd = new Set(hd.filter(Boolean).map(h=>h.rot));
+  return op
+    .filter(dO=>dO && rotsHd.has(dO.rot))
+    .map(dO=>{
+      const dH=hd.find(h=>h&&h.rot===dO.rot);
+      if(!dH)return null;
+      const c={rot:dO.rot,arq:dO.arq,periodo:dO.periodo};
+      for(const k of Object.values(CM))c[k]=(dO[k]||0)+(dH[k]||0);
+      return c;
+    })
+    .filter(Boolean);
+}
+// setEmp e setPag definidas como window.* abaixo
+function render(){renderFin();}
+function renderFin(){
+  document.getElementById('main').innerHTML=`
+    <div class="mtabs">
+      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Página 1 · Análise Mensal</button>
+      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Página 2 · Comparação de Períodos</button>
+    </div>
+    <div id="fp"><div class="loading">Carregando dados...</div></div>`;
+  if(S.pag===1)renderP1();else renderP2();
+}
+async function getDados(){
+  const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]);
+  let d=await Promise.all(lista.map(a=>loadCSV(S.emp==='consolidado'?'operacional':S.emp,a)));
+  if(S.emp==='consolidado'){
+    const dH=await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
+    d=combinar(d,dH.filter(Boolean));
+  }
+  return d.filter(Boolean);
+}
+async function renderP1(){
+  const fp=document.getElementById('fp');
+  const dados=await getDados();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Não foi possível carregar os dados. Verifique se os CSVs estão na pasta correta do GitHub.</div>';return;}
+  if(!S.ini)S.ini=dados[0].rot;
+  if(!S.fim)S.fim=dados[dados.length-1].rot;
+  const iI=dados.findIndex(d=>d.rot===S.ini),iF=dados.findIndex(d=>d.rot===S.fim);
+  const sl=dados.slice(iI>=0?iI:0,iF>=0?iF+1:dados.length);
+  const tot=soma(sl),ult=sl[sl.length-1];
+  // Busca o mesmo mês do ano anterior para comparação nos cards
+  // Ex: se ult = mar/26, busca mar/25
+  const mesUlt=ult.rot.split('/')[0]; // ex: "mar"
+  const anoUlt=parseInt('20'+ult.rot.split('/')[1]); // ex: 2026
+  const rotAnoAnt=mesUlt+'/'+(anoUlt-1).toString().slice(2); // ex: "mar/25"
+  const mesmoPeriodoAnoAnt=dados.find(d=>d.rot===rotAnoAnt)||null;
+  // Fallback: se não encontrar o mesmo mês do ano anterior, usa o mês anterior
+  const pen=mesmoPeriodoAnoAnt||(sl.length>1?sl[sl.length-2]:null);
+  const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
+  fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+buildTabela(sl,tot);
+  buildSparks(dados,sl);
+}
+function buildToolbar1(todos,sl){
+  const opts=r=>todos.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
+  const n=todos.length;
+  return `<div class="toolbar">
+    <div class="tg"><label>Início</label><select onchange="S.ini=this.value;renderP1()">${opts(S.ini)}</select></div>
+    <div class="tg"><label>Fim</label><select onchange="S.fim=this.value;renderP1()">${opts(S.fim)}</select></div>
+    <div class="tg"><label>Atalho</label><div class="qbtns">
+      <button class="qbtn ${sl.length===3?'active':''}" onclick="setQ(3,${n})">Últ. 3 meses</button>
+      <button class="qbtn ${sl.length===6?'active':''}" onclick="setQ(6,${n})">Últ. 6 meses</button>
+      <button class="qbtn ${sl.length===12?'active':''}" onclick="setQ(12,${n})">Últ. 12 meses</button>
+      <button class="qbtn ${sl.length===todos.length?'active':''}" onclick="setQ(0,${n})">Período completo</button>
+    </div></div>
+  </div>`;
+}
+// setQ definida como window.* abaixo
+function buildCards(ult,pen,penLabel,isAnoAnt){
+  const items=[
+    {t:'Vendas Líquidas em Caixa',c:'vlc',id:'sp0'},
+    {t:'Lucro Bruto',c:'lucroBruto',id:'sp1'},
+    {t:'Lucro das Operações',c:'lucroOp',id:'sp2'},
+    {t:'Resultado Financeiro',c:'resFin',id:'sp3'},
+    {t:'Lucro Líquido',c:'lucroLiq',id:'sp4'},
+    {t:'Variação de Caixa',c:'varCaixa',id:'sp5'},
+    {t:'Total Custos Operacionais',c:'totCustos',id:'sp6'},
+    {t:'Lucro Antes do IR',c:'lucroAIR',id:'sp7'},
+  ];
+  const compLabel=penLabel||pen?.rot||'';
+  const compTipo=isAnoAnt?'vs mesmo mês ano anterior':'vs mês anterior';
+  return `<div class="cards">${items.map(it=>{
+    const v=ult[it.c]||0,pct=ult.vlc?((v/ult.vlc)*100):0;
+    const vpen=pen?pen[it.c]||0:null;
+    const d=vpen!=null?v-vpen:null;
+    const dpct=d!=null&&vpen?((d/Math.abs(vpen))*100):null;
+    const varStr=d!=null?`<span class="${dcls(d)}">${fM(d)}</span>${dpct!=null?` · <span class="${dcls(d)}">${fP(dpct)}</span>`:''}`:'-';
+    return `<div class="kcard">
+      <h3>${it.t}</h3>
+      <div class="kval ${v<0?'bad':''}">${fM(v)}</div>
+      <div class="kmeta">
+        <span style="font-size:11px;color:var(--muted)">P(%) ${ult.rot}: </span><strong>${fPS(pct)}%</strong>
+        ${pen?`<br><span style="font-size:11px;color:var(--muted)">${compTipo} (${compLabel}):</span><br>${varStr}`:''}
+      </div>
+      <div class="kchartbox"><canvas id="${it.id}" height="44" role="img" aria-label="Sparkline ${it.t}"></canvas></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function buildSparks(todos,sl){
+  const campos=['vlc','lucroBruto','lucroOp','resFin','lucroLiq','varCaixa','totCustos','lucroAIR'];
+  const cores=['#3b82f6','#10b981','#8b5cf6','#6366f1','#f59e0b','#06b6d4','#ef4444','#84cc16'];
+  const iS=todos.findIndex(d=>d.rot===sl[0].rot),iE=todos.findIndex(d=>d.rot===sl[sl.length-1].rot);
+  campos.forEach((c,i)=>{
+    const el=document.getElementById('sp'+i);if(!el)return;
+    const vals=todos.map(d=>d[c]||0);
+    new Chart(el,{type:'line',data:{labels:todos.map(d=>d.rot),datasets:[{data:vals,borderColor:cores[i],borderWidth:1.5,pointRadius:0,fill:false,tension:0.3,
+      segment:{borderColor:ctx=>ctx.p0DataIndex>=iS&&ctx.p0DataIndex<=iE?cores[i]:cores[i]+'44'}}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
+  });
+}
+function buildAnalysis(ult,pen,sl,tot){
+  const pct=(v,b)=>b?((v/b)*100):0;
+  const mg=pct(ult.lucroBruto,ult.vlc),pc=pct(ult.totCustos,ult.vlc);
+  const lr=ult.lucroOp>0&&ult.varCaixa>0?{t:'Operação positiva',s:`Resultado operacional e caixa positivos em ${ult.rot}.`}
+    :ult.lucroOp>0&&ult.varCaixa<0?{t:'Lucro, caixa negativo',s:'Resultado operacional positivo, porém geração de caixa negativa. Atenção ao capital de giro.'}
+    :ult.lucroOp<0?{t:'Operação negativa',s:`Em ${ult.rot} os custos superaram a margem bruta.`}
+    :{t:'Resultado neutro',s:'Resultado próximo ao equilíbrio.'};
+  const dv=pen?ult.vlc-pen.vlc:null,dc=pen?ult.totCustos-pen.totCustos:null;
+  const per=`${sl[0].rot} até ${sl[sl.length-1].rot}`;
+  return `<div class="analysis">
+    <div class="aitem"><div class="ak">Vendas Líquidas em Caixa</div><div class="av">${fM(ult.vlc)}</div>
+      <div class="as">vs ${pen?pen.rot:'—'}: ${dv!=null?`<span class="${dcls(dv)}">${fM(dv)} · ${fP(dv/Math.abs(pen.vlc||1)*100)}</span>`:'—'}<br>Período selecionado: ${per} (${sl.length} mês(es))</div></div>
+    <div class="aitem"><div class="ak">Custos Operacionais</div><div class="av">${fM(ult.totCustos)}</div>
+      <div class="as">vs vendas líquidas: <strong>${fPS(pc)}%</strong>${dc!=null?`<br>vs ${pen.rot}: <span class="${dcls(-dc)}">${fM(dc)} · ${fP(dc/Math.abs(pen.totCustos||1)*100)}</span>`:''}</div></div>
+    <div class="aitem"><div class="ak">Margem de Venda</div><div class="av">${fPS(mg)}%</div>
+      <div class="as">Leitura atual da margem comercial sobre vendas líquidas em caixa.</div></div>
+    <div class="aitem"><div class="ak">Leitura Rápida</div><div class="av" style="font-size:14px">${lr.t}</div>
+      <div class="as">${lr.s}</div></div>
+  </div>`;
+}
+function buildTabela(sl,tot){
+  const EST=[
+    {g:'Receitas',ls:[
+      {l:'Total de Vendas Recebidas',c:'totVendas'},{l:'( - ) Recebimentos S/ Mov. Caixa',c:'recSemMov'},
+      {l:'( - ) Deduções',c:'deducoes'},{l:'( = ) Vendas Líquidas em Caixa',c:'vlc',s:true},
+      {l:'( - ) Compras',c:'compras'},{l:'( = ) Margem de Venda',c:'margemV',s:true},
+    ]},
+    {g:'Ajustes e Outras Receitas',ls:[
+      {l:'( - ) Impostos Sobre Vendas',c:'impostos'},{l:'( +) Acordos Comerciais',c:'acordos'},
+      {l:'( + ) Trocas/Devoluções Recebidas',c:'trocas'},{l:'( + ) Outras Entradas Operacionais',c:'outEnt'},
+      {l:'( - ) Outras Saídas Operacionais',c:'outSai'},{l:'( + ) Cheques Devolvidos Recebidos',c:'chqRec'},
+      {l:'Lucro Bruto',c:'lucroBruto',s:true},
+    ]},
+    {g:'Custos Operacionais',ls:[
+      {l:'Despesas Tributárias',c:'despTrib'},{l:'Despesas Tributárias - Multas',c:'despMult'},
+      {l:'Fretes',c:'fretes'},{l:'Despesas C/ Pessoal',c:'despPess'},
+      {l:'Despesas Administrativas',c:'despAdm'},{l:'Despesas Indedutíveis',c:'despInded'},
+      {l:'Doações e Patrocínios',c:'doacoes'},{l:'Alugueis',c:'alugueis'},
+      {l:'Taxas Adm de Cartões',c:'taxCart'},{l:'( - ) Recuperação de Despesas',c:'recupDesp'},
+      {l:'Total de Custos Operacionais',c:'totCustos',s:true},{l:'LUCRO DAS OPERAÇÕES',c:'lucroOp',s:true},
+    ]},
+    {g:'Resultado Final',ls:[
+      {l:'Resultado Financeiro',c:'resFin'},{l:'Receita Financeira',c:'recFin'},
+      {l:'Despesas Financeiras',c:'despFin'},{l:'Lucro Antes do IR',c:'lucroAIR',s:true},
+      {l:'Imposto de Renda',c:'IR'},{l:'Lucro Líquido',c:'lucroLiq',s:true},
+      {l:'Necessidade de C.G I',c:'necCG'},{l:'Acionistas',c:'acionistas'},
+      {l:'VARIAÇÃO DE CAIXA',c:'varCaixa',s:true},
+    ]},
+  ];
+  let h=`<div class="section"><div class="shead"><h2>DRE Financeira — mês a mês</h2>
+    <span class="legend">Cada coluna mostra valor e P(%) do mês. A última coluna soma o período filtrado.</span></div>
+    <div class="twrap"><table><thead><tr><th style="min-width:250px">Linha DRE</th>`;
+  sl.forEach(d=>{h+=`<th>${d.rot.toUpperCase()}</th>`;});
+  h+=`<th class="ctot">TOTAL DO PERÍODO</th></tr></thead><tbody>`;
+  for(const grp of EST){
+    h+=`<tr class="rg"><th colspan="${sl.length+2}">${grp.g}</th></tr>`;
+    for(const ln of grp.ls){
+      h+=`<tr class="${ln.s?'rs':''}"><th>${ln.l}</th>`;
+      for(const mes of sl){
+        const v=mes[ln.c]||0,p=mes.vlc?((v/mes.vlc)*100):0;
+        h+=`<td><div class="cv ${v<0&&ln.s?'bad':''}">${fM(v)}</div><div class="cp">P(%) ${fPS(p,2)}%</div></td>`;
+      }
+      const tv=tot[ln.c]||0,tp=tot.vlc?((tv/tot.vlc)*100):0;
+      h+=`<td class="ctot"><div class="cv ${tv<0&&ln.s?'bad':''}">${fM(tv)}</div><div class="cp">P(%) ${fPS(tp,2)}%</div></td></tr>`;
+    }
+  }
+  return h+`</tbody></table></div></div>`;
+}
+async function renderP2(){
+  const fp=document.getElementById('fp');
+  const dados=await getDados();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
+  const rots=dados.map(d=>d.rot);
+  const mid=Math.floor(rots.length/2);
+  // Usa estado salvo ou calcula padrão inteligente:
+  // Período A = primeiro trimestre do primeiro ano disponível
+  // Período B = mesmo trimestre do ano seguinte (ou últimos 3 meses)
+  const rots25 = rots.filter(r=>r.endsWith('/25'));
+  const rots26 = rots.filter(r=>r.endsWith('/26'));
+  const defAS = rots25[0] || rots[0];
+  const defAE = rots25[2] || rots25[rots25.length-1] || rots[mid-1] || rots[0];
+  const defBS = rots26[0] || (rots[mid]||rots[0]);
+  const defBE = rots26[2] || rots26[rots26.length-1] || rots[rots.length-1];
+  const dAS=S.p2aS&&rots.includes(S.p2aS)?S.p2aS:defAS;
+  const dAE=S.p2aE&&rots.includes(S.p2aE)?S.p2aE:defAE;
+  const dBS=S.p2bS&&rots.includes(S.p2bS)?S.p2bS:defBS;
+  const dBE=S.p2bE&&rots.includes(S.p2bE)?S.p2bE:defBE;
+  // Salva no estado
+  S.p2aS=dAS;S.p2aE=dAE;S.p2bS=dBS;S.p2bE=dBE;
+  const mkOpts=(sel)=>rots.map(r=>`<option value="${r}" ${r===sel?'selected':''}>${r}</option>`).join('');
+  fp.innerHTML=`<div class="toolbar">
+    <div class="tg"><label>Período A — Início</label><select id="aS" onchange="onP2Change()">${mkOpts(dAS)}</select></div>
+    <div class="tg"><label>Período A — Fim</label><select id="aE" onchange="onP2Change()">${mkOpts(dAE)}</select></div>
+    <div class="tg" style="align-self:flex-end;padding-bottom:6px;font-weight:800;color:var(--muted)">vs</div>
+    <div class="tg"><label>Período B — Início</label><select id="bS" onchange="onP2Change()">${mkOpts(dBS)}</select></div>
+    <div class="tg"><label>Período B — Fim</label><select id="bE" onchange="onP2Change()">${mkOpts(dBE)}</select></div>
+    <div class="tg"><label>Atalho</label><div class="qbtns">
+      <button class="qbtn" onclick="preset('q1')">Q1 25 vs Q1 26</button>
+      <button class="qbtn" onclick="preset('sem1')">1º Sem 25 vs 26</button>
+      <button class="qbtn" onclick="preset('ano')">2025 vs 2026</button>
+    </div></div>
+  </div><div id="p2body"><div class="loading">Calculando...</div></div>`;
+  calcP2(dados,dAS,dAE,dBS,dBE);
+}
+// Chamado quando o usuário muda um select — salva no estado e recalcula
+window.onP2Change=async function(){
+  const g=id=>document.getElementById(id)?.value;
+  S.p2aS=g('aS');S.p2aE=g('aE');S.p2bS=g('bS');S.p2bE=g('bE');
+  const dados=await getDados();
+  calcP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
+};
+window.calcP2wrap=async function(){
+  const dados=await getDados();
+  calcP2(dados,S.p2aS||'',S.p2aE||'',S.p2bS||'',S.p2bE||'');
+};
+window.preset=async function(t){
+  const dados=await getDados();
+  const rots=dados.map(d=>d.rot);
+  const has=r=>rots.includes(r);
+  const last26=rots.filter(r=>r.endsWith('/26')).slice(-1)[0]||'mar/26';
+  const map={q1:['jan/25','mar/25','jan/26','mar/26'],sem1:['jan/25','jun/25','jan/26',last26],ano:['jan/25','dez/25','jan/26',last26]};
+  const [aS,aE,bS,bE]=map[t];
+  // Salva no estado e atualiza selects
+  S.p2aS=has(aS)?aS:rots[0]; S.p2aE=has(aE)?aE:rots[0];
+  S.p2bS=has(bS)?bS:rots[0]; S.p2bE=has(bE)?bE:rots[rots.length-1];
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&has(v))el.value=v;};
+  set('aS',S.p2aS);set('aE',S.p2aE);set('bS',S.p2bS);set('bE',S.p2bE);
+  calcP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
+};
+const MET_MAIN=[
+  {l:'Vendas Líquidas em Caixa',c:'vlc'},
+  {l:'Compras',c:'compras'},
+  {l:'Margem de Venda',c:'margemV'},
+  {l:'Lucro Bruto',c:'lucroBruto'},
+  {l:'Despesas C/ Pessoal',c:'despPess'},
+  {l:'Despesas Administrativas',c:'despAdm'},
+  {l:'Alugueis',c:'alugueis'},
+  {l:'Taxas Adm de Cartões',c:'taxCart'},
+  {l:'Total Custos Operacionais',c:'totCustos'},
+  {l:'LUCRO DAS OPERAÇÕES',c:'lucroOp'},
+  {l:'Resultado Financeiro',c:'resFin'},
+  {l:'Lucro Antes do IR',c:'lucroAIR'},
+  {l:'Lucro Líquido',c:'lucroLiq'},
+  {l:'Imobilizado/Investimentos',c:'imobilizado'},
+  {l:'Empréstimos Bancários',c:'emprestimos'},
+  {l:'NECESSIDADE DE C.G I',c:'necCG'},
+  {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},
+];
+const MET_FULL=[
+  {l:'Total de Vendas Recebidas',c:'totVendas'},
+  {l:'Recebimentos S/ Mov. Caixa',c:'recSemMov'},
+  {l:'Deduções',c:'deducoes'},
+  {l:'Vendas Líquidas em Caixa',c:'vlc'},
+  {l:'Compras',c:'compras'},
+  {l:'Margem de Venda',c:'margemV'},
+  {l:'Impostos Sobre Vendas',c:'impostos'},
+  {l:'Acordos Comerciais',c:'acordos'},
+  {l:'Trocas/Devoluções Recebidas',c:'trocas'},
+  {l:'Sub Total Acordos Comerciais',c:'subAcordos'},
+  {l:'Outras Entradas Operacionais',c:'outEnt'},
+  {l:'Outras Saídas Operacionais',c:'outSai'},
+  {l:'Cheques Devolvidos Recebidos',c:'chqRec'},
+  {l:'Lucro Bruto',c:'lucroBruto'},
+  {l:'Despesas Tributárias',c:'despTrib'},
+  {l:'Desp. Tributárias - Multas',c:'despMult'},
+  {l:'Fretes',c:'fretes'},
+  {l:'Despesas C/ Pessoal',c:'despPess'},
+  {l:'Despesas Administrativas',c:'despAdm'},
+  {l:'Despesas Indedutíveis',c:'despInded'},
+  {l:'Doações e Patrocínios',c:'doacoes'},
+  {l:'Alugueis',c:'alugueis'},
+  {l:'Taxas Adm de Cartões',c:'taxCart'},
+  {l:'Recuperação de Despesas',c:'recupDesp'},
+  {l:'Total Custos Operacionais',c:'totCustos'},
+  {l:'LUCRO DAS OPERAÇÕES',c:'lucroOp'},
+  {l:'Resultado Financeiro',c:'resFin'},
+  {l:'Receita Financeira',c:'recFin'},
+  {l:'Despesas Financeiras',c:'despFin'},
+  {l:'Lucro Antes do IR',c:'lucroAIR'},
+  {l:'Imposto de Renda',c:'IR'},
+  {l:'Lucro Líquido',c:'lucroLiq'},
+  {l:'Fluxo Invest. & Financiamentos',c:'fluxoInvest'},
+  {l:'SAÍDAS (Invest. & Fin.)',c:'fluxoSaidas'},
+  {l:'Empréstimos Bancários',c:'emprestimos'},
+  {l:'Parcelamentos',c:'parcelamentos'},
+  {l:'Imobilizado/Investimentos',c:'imobilizado'},
+  {l:'Juros S/ Empréstimos',c:'jurosEmprestimos'},
+  {l:'ENTRADAS (Invest. & Fin.)',c:'fluxoEntradas'},
+  {l:'Empréstimos Recebidos',c:'emprestimosEnt'},
+  {l:'Venda de Imobilizados',c:'vendaImob'},
+  {l:'Dividendos Outras Empresas',c:'dividendos'},
+  {l:'Fluxo dos Adiantamentos',c:'fluxoAdiant'},
+  {l:'Adiantamentos Efetuados',c:'adiantEfet'},
+  {l:'Adiantamentos Recebidos',c:'adiantReceb'},
+  {l:'Fluxo dos Cheques Emitidos',c:'fluxoCheques'},
+  {l:'Cheques Compensados',c:'chqCompensados'},
+  {l:'Cheques Emitidos',c:'chqEmitidos'},
+  {l:'NECESSIDADE DE C.G I',c:'necCG'},
+  {l:'Acionistas',c:'acionistas'},
+  {l:'Recurso de Ligadas',c:'recursoLigadas'},
+  {l:'Recurso Enviado a Ligadas',c:'recursoEnviado'},
+  {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},
+  {l:'Entradas de Correspondentes',c:'entCorresp'},
+  {l:'Saída de Correspondentes',c:'saiCorresp'},
+];
+let p2view='main';
+function calcP2(dados,aS,aE,bS,bE){
+  const body=document.getElementById('p2body');if(!body)return;
+  const rots=dados.map(d=>d.rot);
+  const iAS=rots.indexOf(aS),iAE=rots.indexOf(aE),iBS=rots.indexOf(bS),iBE=rots.indexOf(bE);
+  const slA=dados.slice(iAS>=0?iAS:0,iAE>=0?iAE+1:1);
+  const slB=dados.slice(iBS>=0?iBS:0,iBE>=0?iBE+1:dados.length);
+  if(!slA.length||!slB.length){body.innerHTML='<div class="errmsg">Selecione períodos válidos.</div>';return;}
+  const A=soma(slA),B=soma(slB);
+  const df=(a,b)=>{const d=b-a,p=a?((d/Math.abs(a))*100):0;return{d,p};};
+  const KPI=[
+    {l:'Vendas em Caixa',c:'vlc'},{l:'Margem de Venda',c:'margemV'},
+    {l:'LUCRO OPERAÇÕES',c:'lucroOp'},{l:'Lucro Líquido',c:'lucroLiq'},
+    {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},{l:'Resultado Financeiro',c:'resFin'},
+    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Total Custos Oper.',c:'totCustos'},
+  ];
+  const cards=KPI.map(m=>{
+    const{d,p}=df(A[m.c]||0,B[m.c]||0);const cls=d>=0?'good':'bad';
+    return `<div class="kcard" style="min-height:0;padding:12px">
+      <h3>${m.l}</h3>
+      <div class="kval" style="font-size:18px">${fM(B[m.c]||0)}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px">
+        <span>A: ${fM(A[m.c]||0)}</span><span>B: ${fM(B[m.c]||0)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:2px">
+        <span style="color:var(--muted)">Diferença</span>
+        <span class="${cls}">${fM(d)} · ${fP(p)}</span>
+      </div>
+    </div>`;
+  }).join('');
+  const MET_BAR=[
+    {l:'Vendas Líquidas em Caixa',c:'vlc'},{l:'Margem de Venda',c:'margemV'},
+    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Custos Operacionais',c:'totCustos'},
+    {l:'Lucro das Operações',c:'lucroOp'},{l:'Resultado Financeiro',c:'resFin'},
+    {l:'Lucro Líquido',c:'lucroLiq'},{l:'Variação de Caixa',c:'varCaixa'},
+  ];
+  const maxV=Math.max(...MET_BAR.map(m=>Math.max(Math.abs(A[m.c]||0),Math.abs(B[m.c]||0))),1);
+  const barras=MET_BAR.map(m=>{
+    const wa=(Math.abs(A[m.c]||0)/maxV*100).toFixed(1),wb=(Math.abs(B[m.c]||0)/maxV*100).toFixed(1);
+    const{d,p}=df(A[m.c]||0,B[m.c]||0);
+    return `<div class="bar-row"><div>${m.l}</div><div class="bar-track"><div class="bar-a" style="width:${wa}%"></div><div class="bar-b" style="width:${wb}%"></div></div><div class="${dcls(d)}">${fP(p)}</div></div>`;
+  }).join('');
+  const cv=df(A.vlc,B.vlc),cc=df(A.totCustos,B.totCustos),cl=df(A.lucroLiq,B.lucroLiq),cvc=df(A.varCaixa,B.varCaixa);
+  const c=v=>v>=0?'good':'bad';
+  const txt=`
+    <p><strong>Caixa:</strong> O período B terminou com <strong>${fM(B.varCaixa)}</strong> contra <strong>${fM(A.varCaixa)}</strong> no A — <span class="${c(cvc.d)}">${fM(cvc.d)} (${fP(cvc.p)})</span>.</p>
+    <p><strong>Receita:</strong> Vendas líquidas de <strong>${fM(B.vlc)}</strong> no B contra <strong>${fM(A.vlc)}</strong> no A — <span class="${c(cv.d)}">${fM(cv.d)} (${fP(cv.p)})</span>.</p>
+    <p><strong>Eficiência operacional:</strong> Lucro operacional de <strong>${fM(A.lucroOp)}</strong> para <strong>${fM(B.lucroOp)}</strong>. Custos de <strong>${fM(A.totCustos)}</strong> para <strong>${fM(B.totCustos)}</strong>.</p>
+    <p><strong>Resultado final:</strong> Lucro líquido <strong>${fM(B.lucroLiq)}</strong> no B contra <strong>${fM(A.lucroLiq)}</strong> no A — <span class="${c(cl.d)}">${fM(cl.d)} (${fP(cl.p)})</span>.</p>
+    <p><strong>Média mensal de caixa:</strong><br>A = <strong>${fM(A.varCaixa/A.months)}</strong> &nbsp;·&nbsp; B = <strong>${fM(B.varCaixa/B.months)}</strong></p>`;
+  const metAtual=p2view==='full'?MET_FULL:MET_MAIN;
+  const linhas=metAtual.map(m=>{const{d,p}=df(A[m.c]||0,B[m.c]||0);return `<tr>
+    <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${m.l}</td>
+    <td class="cv">${fM(A[m.c]||0)}</td><td class="cv">${fM(B[m.c]||0)}</td>
+    <td class="cv ${dcls(d)}">${fM(d)}</td><td class="cv ${dcls(d)}">${fP(p)}</td>
+    <td class="cv">${fM((A[m.c]||0)/A.months)}</td><td class="cv">${fM((B[m.c]||0)/B.months)}</td>
+  </tr>`;}).join('');
+  body.innerHTML=`
+    <div class="cards" style="margin-top:14px">${cards}</div>
+    <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px">
+      <div class="section"><div class="shead"><h2>Leitura executiva do comparativo</h2></div><div class="sumtext">${txt}</div></div>
+      <div class="section"><div class="shead"><h2>Estrutura dos períodos</h2></div>
+        <p style="font-size:13px;margin-bottom:6px"><strong>Período A:</strong> ${slA[0].rot} até ${slA[slA.length-1].rot} (${slA.length} mês(es))</p>
+        <p style="font-size:13px;margin-bottom:6px"><strong>Período B:</strong> ${slB[0].rot} até ${slB[slB.length-1].rot} (${slB.length} mês(es))</p>
+        <p style="font-size:13px"><strong>Média mensal de caixa:</strong><br>A = <strong>${fM(A.varCaixa/A.months)}</strong><br>B = <strong>${fM(B.varCaixa/B.months)}</strong></p>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px">Comparação feita por acumulado simples das linhas mensais selecionadas.</p>
+      </div>
+    </div>
+    <div class="section"><div class="shead"><h2>Comparação por linha da DRE financeira</h2></div>
+      <div class="bar-leg"><span><i style="background:rgba(29,78,216,.75)"></i>Período A</span><span><i style="background:rgba(15,118,110,.65)"></i>Período B</span></div>
+      <div style="margin-top:12px">${barras}</div>
+    </div>
+    <div class="section"><div class="shead"><h2>Tabela comparativa completa</h2>
+      <div style="display:flex;gap:6px">
+        <button class="qbtn ${p2view==='main'?'active':''}" onclick="p2view='main';calcP2wrap()">Principais linhas</button>
+        <button class="qbtn ${p2view==='full'?'active':''}" onclick="p2view='full';calcP2wrap()">DRE completa</button>
+      </div></div>
+      <div class="twrap"><table><thead><tr>
+        <th style="min-width:200px;text-align:left">Linha</th>
+        <th>Período A</th><th>Período B</th>
+        <th>Diferença</th><th>Variação %</th>
+        <th>Média Mensal A</th><th>Média Mensal B</th>
+      </tr></thead><tbody>${linhas}</tbody></table></div>
+    </div>`;
+}
+// Expõe todas as funções usadas em onclick para o escopo global
+// Necessário para funcionar corretamente no GitHub Pages
+window.setPag=function(p){S.pag=p;renderFin();}
+window.setEmp=function(e,btn){
+  S.emp=e;S.ini=null;S.fim=null;S.cache={};
+  S.p2aS=null;S.p2aE=null;S.p2bS=null;S.p2bE=null;
+  document.querySelectorAll('#btnEmp .btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');render();
+}
+window.setQ=function(n,total){
+  const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]);
+  const rots=lista.map(a=>rot(a));
+  if(n===0||n>=rots.length){S.ini=rots[0];S.fim=rots[rots.length-1];}
+  else{S.ini=rots[rots.length-n];S.fim=rots[rots.length-1];}
+  renderP1();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('hinfo').textContent=`v2.0 · ${new Date().toLocaleDateString('pt-BR')}`;
+  render();
+});
+</script>
+</div></body>
+</html>
