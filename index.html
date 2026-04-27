@@ -1228,8 +1228,17 @@ async function renderBPP1(){
   const cards=`<div class="cards">${KPI.map((it,i)=>{
     const d=it.ant!=null?it.v-it.ant:null;
     const dpct=d!=null&&it.ant?((d/Math.abs(it.ant))*100):null;
-    const valStr=it.fmt==='moeda'?fM(it.v):`${it.v.toFixed(2)}x`;
-    const dStr=d!=null?(it.fmt==='moeda'?`<span class="${it.inv?dcls(-d):dcls(d)}">${fM(d)}</span>${dpct!=null?` · <span class="${it.inv?dcls(-d):dcls(d)}">${fP(dpct)}</span>`:''}`):`<span class="${it.inv?dcls(-d):dcls(d)}">${d>=0?'+':''}${d.toFixed(2)}</span>`:'-';
+    const valStr=it.fmt==='moeda'?fM(it.v):it.v.toFixed(2)+'x';
+    let dStr='-';
+    if(d!=null){
+      const cls=it.inv?dcls(-d):dcls(d);
+      if(it.fmt==='moeda'){
+        dStr='<span class="'+cls+'">'+fM(d)+'</span>';
+        if(dpct!=null)dStr+=' · <span class="'+cls+'">'+fP(dpct)+'</span>';
+      } else {
+        dStr='<span class="'+cls+'">'+(d>=0?'+':'')+d.toFixed(2)+'</span>';
+      }
+    }
     const ref=it.ref!=null?(it.v>=(it.inv?0:it.ref)?'<span class="good">✓ Saudável</span>':'<span class="bad">⚠ Atenção</span>'):'';
     return `<div class="kcard" id="bpk${i}">
       <h3>${it.t}</h3>
