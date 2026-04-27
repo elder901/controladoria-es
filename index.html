@@ -672,8 +672,16 @@ const ARQ_DRE={
 const BASE_DRE='https://raw.githubusercontent.com/elder901/controladoria-es/main';
 
 function rotDRE(arq){
-  const m=arq.match(/(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(\d{2})\.csv$/i);
-  return m?m[1].toLowerCase()+'/'+m[2]:arq;
+  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const lower=arq.toLowerCase().replace('.csv','');
+  for(const mes of meses){
+    const idx=lower.indexOf(mes);
+    if(idx>=0){
+      const ano=lower.slice(idx+3,idx+5);
+      if(ano.length===2&&!isNaN(ano))return mes+'/'+ano;
+    }
+  }
+  return arq;
 }
 
 async function loadDRE(arq){
@@ -691,8 +699,7 @@ async function loadDRE(arq){
 }
 
 function parseDRE(txt,arq){
-  const lines=txt.split(/
-?\n/);
+  const lines=txt.split(/\r?\n/);
   const d={rot:rotDRE(arq),arq};
   // Extrai período
   if(lines[1]){const m=lines[1].match(/Per[^:]*:([^;]+)/);if(m)d.periodo=m[1].trim();}
