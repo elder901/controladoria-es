@@ -110,7 +110,7 @@ tbody tr.rs td.ctot{background:#e4edff}
     <div class="btngrp">
       <button class="btn active" onclick="setModulo('financeiro',this)">Financeiro</button>
       <button class="btn" onclick="setModulo('dre',this)">DRE</button>
-      <button class="btn off" title="Em breve">Balanço Patrimonial</button>
+      <button class="btn" onclick="setModulo('bp',this)">Balanço Patrimonial</button>
     </div>
   </div>
 </div></div>
@@ -255,6 +255,7 @@ function combinar(op,hd){
 // setEmp e setPag definidas como window.* abaixo
 function render(){
   if(S.modulo==='dre')renderDRE();
+  else if(S.modulo==='bp')renderBP();
   else renderFin();
 }
 function renderFin(){
@@ -478,6 +479,11 @@ window.onP2Change=async function(){
   if(S.modulo==='dre'){
     const dados=await getDadosDRE();
     calcDREP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
+  } else if(S.modulo==='bp'){
+    const dados=await getDadosBP();
+    const mesA=dados.find(d=>d.rot===S.p2aE)||dados[0];
+    const mesB=dados.find(d=>d.rot===S.p2bE)||dados[dados.length-1];
+    renderBPP2();
   } else {
     const dados=await getDados();
     calcP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
@@ -1062,6 +1068,383 @@ function calcDREP2(dados,aS,aE,bS,bE){
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
+
+// ============================================================
+// MÓDULO BALANÇO PATRIMONIAL
+// ============================================================
+const ARQ_BP={
+  operacional:['BPjan25.csv','BPfev25.csv','BPmar25.csv','BPabr25.csv','BPmai25.csv','BPjun25.csv','BPjul25.csv','BPago25.csv','BPset25.csv','BPout25.csv','BPnov25.csv','BPdez25.csv','BPjan26.csv','BPfev26.csv','BPmar26.csv'],
+};
+
+function rotBP(arq){
+  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const lower=arq.toLowerCase().replace('.csv','');
+  for(const mes of meses){
+    const idx=lower.indexOf(mes);
+    if(idx>=0){const ano=lower.slice(idx+3,idx+5);if(ano.length===2&&!isNaN(ano))return mes+'/'+ano;}
+  }
+  return arq;
+}
+
+async function loadBP(arq){
+  const k='bp/'+arq;
+  if(S.cache[k])return S.cache[k];
+  try{
+    const r=await fetch(`${BASE}/data/bp/${encodeURIComponent(arq)}`);
+    if(!r.ok)return null;
+    const buf=await r.arrayBuffer();
+    let txt;try{txt=new TextDecoder('utf-8').decode(buf);}catch(e){txt=new TextDecoder('latin-1').decode(buf);}
+    const d=parseBP(txt,arq);S.cache[k]=d;return d;
+  }catch(e){return null;}
+}
+
+function parseBP(txt,arq){
+  const lines=txt.split(/\r?\n/);
+  const d={rot:rotBP(arq),arq};
+  if(lines[2]){const m=lines[2].match(/Per[^:]*:([^;]+)/);if(m)d.periodo=m[1].trim();}
+  const gv=(linha,col)=>{
+    if(!linha)return 0;
+    const p=linha.split(';');
+    return p.length>col?parseMoeda(p[col]):0;
+  };
+  const gi=(linha,col)=>{
+    if(!linha)return 0;
+    const p=linha.split(';');
+    if(p.length<=col||!p[col].trim())return 0;
+    return parseFloat(p[col].replace(',','.').trim())||0;
+  };
+  // ATIVO — col 5 = atual, col 6 = anterior
+  d.atvCirculante=gv(lines[7],5); d.atvCircAnt=gv(lines[7],6);
+  d.disponibilidades=gv(lines[8],5);
+  d.caixaBancos=gv(lines[9],5);
+  d.creditos=gv(lines[10],5);
+  d.contasReceber=gv(lines[11],5);
+  d.tribRecuperar=gv(lines[13],5);
+  d.aplicFinanceiras=gv(lines[14],5);
+  d.outrosCreditos=gv(lines[15],5);
+  d.estoques=gv(lines[17],5);
+  d.atvNaoCirculante=gv(lines[23],5); d.atvNaoCircAnt=gv(lines[23],6);
+  d.deposJudiciais=gv(lines[24],5);
+  d.investimentos=gv(lines[25],5);
+  d.imobilizado=gv(lines[26],5);
+  d.totalAtivo=gv(lines[28],5); d.totalAtivoAnt=gv(lines[28],6);
+  // PASSIVO
+  d.pasCirculante=gv(lines[32],5); d.pasCircAnt=gv(lines[32],6);
+  d.fornecedores=gv(lines[33],5);
+  d.titulosPagar=gv(lines[34],5);
+  d.salariosPagar=gv(lines[35],5);
+  d.obrigSociais=gv(lines[36],5);
+  d.obrigFiscais=gv(lines[37],5);
+  d.financiamentosPC=gv(lines[38],5);
+  d.outrasObrig=gv(lines[39],5);
+  d.provisoesSociais=gv(lines[40],5);
+  d.pasNaoCirculante=gv(lines[43],5); d.pasNaoCircAnt=gv(lines[43],6);
+  d.financiamentosPNC=gv(lines[44],5);
+  d.patrimonioLiq=gv(lines[47],5); d.patrimonioLiqAnt=gv(lines[47],6);
+  d.capitalSocial=gv(lines[48],5);
+  d.reservasLucro=gv(lines[49],5);
+  d.resultadoExerc=gv(lines[51],5);
+  d.dividendos=gv(lines[52],5);
+  d.totalPassivo=gv(lines[54],5); d.totalPassivoAnt=gv(lines[54],6);
+  // ÍNDICES ESTRUTURA DE CAPITAIS (col 10)
+  d.grauEndividamento=gi(lines[9],10);
+  d.solvenciaGeral=gi(lines[10],10);
+  d.composEndividamento=gi(lines[11],10);
+  d.garantiaCapTerceiros=gi(lines[12],10);
+  d.imobCapProprio=gi(lines[13],10);
+  d.grauPermAtivo=gi(lines[14],10);
+  // ÍNDICES DE LIQUIDEZ (col 10)
+  d.liquidezGeral=gi(lines[17],10);
+  d.liquidezImediata=gi(lines[18],10);
+  d.liquidezSeca=gi(lines[19],10);
+  d.liquidezCorrente=gi(lines[20],10);
+  // ÍNDICES RENTABILIDADE (col 10)
+  d.margemOperacional=gi(lines[23],10);
+  d.margemBruta=gi(lines[24],10);
+  d.margemLiquida=gi(lines[25],10);
+  d.giroOperacional=gi(lines[26],10);
+  d.giroGeral=gi(lines[27],10);
+  d.retornoOperacional=gi(lines[28],10);
+  d.retornoCapProprio=gi(lines[30],10);
+  return d;
+}
+
+async function getDadosBP(){
+  const lista=ARQ_BP.operacional;
+  const d=await Promise.all(lista.map(a=>loadBP(a)));
+  return d.filter(Boolean);
+}
+
+async function renderBP(){
+  document.getElementById('main').innerHTML=`
+    <div class="mtabs">
+      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Página 1 · Balanço Mensal</button>
+      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Página 2 · Evolução & Índices</button>
+    </div>
+    <div id="fp"><div class="loading">Carregando Balanço Patrimonial...</div></div>`;
+  if(S.pag===1)renderBPP1();else renderBPP2();
+}
+
+async function renderBPP1(){
+  const fp=document.getElementById('fp');
+  const dados=await getDadosBP();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Não foi possível carregar os dados. Verifique se os CSVs estão na pasta <code>data/bp/</code> do GitHub.</div>';return;}
+
+  // Seleciona o mês atual (último disponível ou filtrado)
+  if(!S.ini)S.ini=dados[dados.length-1].rot;
+  const mes=dados.find(d=>d.rot===S.ini)||dados[dados.length-1];
+  // Encontra o mês anterior sem regex
+  const _mesAtual=mes.rot.split('/')[0];
+  const _anoAtual=mes.rot.split('/')[1];
+  const _mesesLst=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const _iMes=_mesesLst.indexOf(_mesAtual);
+  const _rotAnt=_iMes>0?_mesesLst[_iMes-1]+'/'+_anoAtual:_mesesLst[11]+'/'+(parseInt('20'+_anoAtual)-1).toString().slice(2);
+  const ant=dados.find(d=>d.rot===_rotAnt)||null;
+
+  // Seletor de mês
+  const opts=dados.map(d=>`<option value="${d.rot}" ${d.rot===mes.rot?'selected':''}>${d.rot}</option>`).join('');
+  const toolbar=`<div class="toolbar">
+    <div class="tg"><label>Mês de referência</label>
+      <select onchange="S.ini=this.value;renderBPP1()">${opts}</select>
+    </div>
+    <div style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:6px">
+      Mostrando: <strong>${mes.rot}</strong> vs <strong>${ant?ant.rot:'mês anterior'}</strong>
+    </div>
+  </div>`;
+
+  // Cards KPI
+  const pct=(v,b)=>b?((v/b)*100).toFixed(1)+'%':'—';
+  const delta=(a,b)=>b!=null?a-b:null;
+  const KPI=[
+    {t:'Total do Ativo',v:mes.totalAtivo,ant:mes.totalAtivoAnt,fmt:'moeda'},
+    {t:'Ativo Circulante',v:mes.atvCirculante,ant:mes.atvCircAnt,fmt:'moeda'},
+    {t:'Ativo Não Circulante',v:mes.atvNaoCirculante,ant:mes.atvNaoCircAnt,fmt:'moeda'},
+    {t:'Passivo Circulante',v:mes.pasCirculante,ant:mes.pasCircAnt,fmt:'moeda'},
+    {t:'Passivo Não Circulante',v:mes.pasNaoCirculante,ant:mes.pasNaoCircAnt,fmt:'moeda'},
+    {t:'Patrimônio Líquido',v:mes.patrimonioLiq,ant:mes.patrimonioLiqAnt,fmt:'moeda'},
+    {t:'Liquidez Corrente',v:mes.liquidezCorrente,ant:ant?ant.liquidezCorrente:null,fmt:'indice',ref:1.0},
+    {t:'Endividamento',v:mes.grauEndividamento,ant:ant?ant.grauEndividamento:null,fmt:'indice',ref:0.5,inv:true},
+  ];
+  const cards=`<div class="cards">${KPI.map((it,i)=>{
+    const d=it.ant!=null?it.v-it.ant:null;
+    const dpct=d!=null&&it.ant?((d/Math.abs(it.ant))*100):null;
+    const valStr=it.fmt==='moeda'?fM(it.v):`${it.v.toFixed(2)}x`;
+    const dStr=d!=null?(it.fmt==='moeda'?`<span class="${it.inv?dcls(-d):dcls(d)}">${fM(d)}</span>${dpct!=null?` · <span class="${it.inv?dcls(-d):dcls(d)}">${fP(dpct)}</span>`:''}`):`<span class="${it.inv?dcls(-d):dcls(d)}">${d>=0?'+':''}${d.toFixed(2)}</span>`:'-';
+    const ref=it.ref!=null?(it.v>=(it.inv?0:it.ref)?'<span class="good">✓ Saudável</span>':'<span class="bad">⚠ Atenção</span>'):'';
+    return `<div class="kcard" id="bpk${i}">
+      <h3>${it.t}</h3>
+      <div class="kval ${it.fmt==='moeda'&&it.v<0?'bad':''}">${valStr}</div>
+      <div class="kmeta">
+        ${ref?ref+'<br>':''}
+        ${it.ant!=null?`vs mês anterior: ${dStr}`:''}
+      </div>
+      <div class="kchartbox" id="bpsp${i}"></div>
+    </div>`;
+  }).join('')}</div>`;
+
+  // Análise rápida de índices
+  const indices=`<div class="analysis">
+    <div class="aitem">
+      <div class="ak">Estrutura de Capital</div>
+      <div class="av">${mes.grauEndividamento.toFixed(2)}</div>
+      <div class="as">Endividamento: <strong>${(mes.grauEndividamento*100).toFixed(0)}%</strong> do ativo financiado por terceiros<br>
+      Solvência geral: <strong>${mes.solvenciaGeral.toFixed(2)}x</strong></div>
+    </div>
+    <div class="aitem">
+      <div class="ak">Liquidez</div>
+      <div class="av ${mes.liquidezCorrente<1?'bad':''}">${mes.liquidezCorrente.toFixed(2)}x</div>
+      <div class="as">Corrente: <strong>${mes.liquidezCorrente.toFixed(2)}x</strong> ${mes.liquidezCorrente>=1?'<span class="good">✓</span>':'<span class="bad">⚠ abaixo de 1</span>'}<br>
+      Seca: <strong>${mes.liquidezSeca.toFixed(2)}x</strong> &nbsp;·&nbsp; Imediata: <strong>${mes.liquidezImediata.toFixed(2)}x</strong></div>
+    </div>
+    <div class="aitem">
+      <div class="ak">Rentabilidade</div>
+      <div class="av">${mes.margemLiquida.toFixed(1)}%</div>
+      <div class="as">Margem líquida: <strong>${mes.margemLiquida.toFixed(2)}%</strong><br>
+      Margem bruta: <strong>${mes.margemBruta.toFixed(2)}%</strong><br>
+      Retorno PL: <strong>${(mes.retornoCapProprio*100).toFixed(2)}%</strong></div>
+    </div>
+    <div class="aitem">
+      <div class="ak">Leitura Rápida</div>
+      <div class="av" style="font-size:13px">${mes.liquidezCorrente>=1&&mes.grauEndividamento<0.7?'Estrutura saudável':mes.liquidezCorrente<1?'Liquidez em alerta':'Endividamento elevado'}</div>
+      <div class="as">${mes.liquidezCorrente>=1?'Ativos circulantes cobrem passivos de curto prazo.':'Passivos circulantes superam ativos circulantes. Atenção ao caixa.'}</div>
+    </div>
+  </div>`;
+
+  // Tabela BP estruturada
+  const EST_BP=[
+    {g:'ATIVO CIRCULANTE',tot:'atvCirculante',ls:[
+      {l:'Disponibilidades (Caixa e Bancos)',c:'disponibilidades'},
+      {l:'Créditos (Contas a Receber)',c:'creditos'},
+      {l:'Tributos a Recuperar',c:'tribRecuperar'},
+      {l:'Aplicações Financeiras',c:'aplicFinanceiras'},
+      {l:'Outros Créditos',c:'outrosCreditos'},
+      {l:'Estoques',c:'estoques'},
+    ]},
+    {g:'ATIVO NÃO CIRCULANTE',tot:'atvNaoCirculante',ls:[
+      {l:'Depósitos Judiciais',c:'deposJudiciais'},
+      {l:'Investimentos',c:'investimentos'},
+      {l:'Imobilizado',c:'imobilizado'},
+    ]},
+    {g:'PASSIVO CIRCULANTE',tot:'pasCirculante',ls:[
+      {l:'Fornecedores',c:'fornecedores'},
+      {l:'Títulos a Pagar',c:'titulosPagar'},
+      {l:'Salários a Pagar',c:'salariosPagar'},
+      {l:'Obrigações Sociais',c:'obrigSociais'},
+      {l:'Obrigações Fiscais',c:'obrigFiscais'},
+      {l:'Financiamentos (CP)',c:'financiamentosPC'},
+      {l:'Outras Obrigações',c:'outrasObrig'},
+      {l:'Provisões Sociais',c:'provisoesSociais'},
+    ]},
+    {g:'PASSIVO NÃO CIRCULANTE',tot:'pasNaoCirculante',ls:[
+      {l:'Financiamentos (LP)',c:'financiamentosPNC'},
+    ]},
+    {g:'PATRIMÔNIO LÍQUIDO',tot:'patrimonioLiq',ls:[
+      {l:'Capital Social Integralizado',c:'capitalSocial'},
+      {l:'Reservas de Lucros',c:'reservasLucro'},
+      {l:'Resultado do Exercício Corrente',c:'resultadoExerc'},
+      {l:'( - ) Dividendos Distribuídos',c:'dividendos'},
+    ]},
+  ];
+
+  let tabela=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">`;
+  // ATIVO (esquerda) e PASSIVO+PL (direita)
+  const buildGrpTabela=(grps)=>{
+    let h='';
+    for(const grp of grps){
+      const tot=mes[grp.tot]||0;const totAnt=mes[grp.tot+'Ant']||mes[grp.tot.replace('Circulante','CircAnt').replace('patrimonioLiq','patrimonioLiqAnt').replace('pasNaoCirculante','pasNaoCircAnt').replace('atvNaoCirculante','atvNaoCircAnt')]||0;
+      const d=tot-totAnt;
+      h+=`<div class="section" style="margin-bottom:8px">
+        <div class="shead" style="margin-bottom:6px">
+          <h2 style="font-size:13px">${grp.g}</h2>
+          <span style="font-weight:800;font-size:14px">${fM(tot)} <span class="${dcls(d)}" style="font-size:11px">${fM(d)}</span></span>
+        </div>`;
+      for(const ln of grp.ls){
+        const v=mes[ln.c]||0;const pct=tot?((v/tot)*100):0;
+        h+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+          <span style="color:var(--muted)">${ln.l}</span>
+          <span style="font-weight:700">${fM(v)} <span style="color:var(--muted);font-size:10px">${fPS(pct,1)}%</span></span>
+        </div>`;
+      }
+      h+='</div>';
+    }
+    return h;
+  };
+
+  tabela+=`<div>${buildGrpTabela(EST_BP.slice(0,2))}</div>`;
+  tabela+=`<div>${buildGrpTabela(EST_BP.slice(2,5))}</div>`;
+  tabela+=`</div>`;
+
+  // Tabela evolução mensal dos principais indicadores
+  const evol=`<div class="section"><div class="shead"><h2>Evolução dos Índices — mês a mês</h2></div>
+    <div class="twrap"><table><thead><tr>
+      <th style="min-width:220px;text-align:left">Indicador</th>
+      ${dados.map(d=>`<th>${d.rot.toUpperCase()}</th>`).join('')}
+    </tr></thead><tbody>
+      ${[
+        {l:'Total do Ativo',c:'totalAtivo',fmt:'m'},
+        {l:'Ativo Circulante',c:'atvCirculante',fmt:'m'},
+        {l:'Passivo Circulante',c:'pasCirculante',fmt:'m'},
+        {l:'Patrimônio Líquido',c:'patrimonioLiq',fmt:'m'},
+        {l:'Estoques',c:'estoques',fmt:'m'},
+        {l:'Liquidez Corrente',c:'liquidezCorrente',fmt:'i'},
+        {l:'Liquidez Seca',c:'liquidezSeca',fmt:'i'},
+        {l:'Grau Endividamento',c:'grauEndividamento',fmt:'i'},
+        {l:'Solvência Geral',c:'solvenciaGeral',fmt:'i'},
+        {l:'Margem Líquida %',c:'margemLiquida',fmt:'p'},
+        {l:'Margem Bruta %',c:'margemBruta',fmt:'p'},
+        {l:'Retorno Cap. Próprio',c:'retornoCapProprio',fmt:'rp'},
+      ].map(ln=>`<tr><th>${ln.l}</th>${dados.map(d=>{
+        const v=d[ln.c]||0;
+        const str=ln.fmt==='m'?fM(v):ln.fmt==='i'?v.toFixed(2)+'x':ln.fmt==='p'?v.toFixed(1)+'%':(v*100).toFixed(2)+'%';
+        return `<td class="cv">${str}</td>`;
+      }).join('')}</tr>`).join('')}
+    </tbody></table></div></div>`;
+
+  fp.innerHTML=toolbar+cards+indices+tabela+evol;
+
+  // Sparklines BP
+  const spCampos=['totalAtivo','atvCirculante','atvNaoCirculante','pasCirculante','pasNaoCirculante','patrimonioLiq','liquidezCorrente','grauEndividamento'];
+  const spCores=['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#84cc16','#f97316'];
+  spCampos.forEach((c,i)=>{
+    const el=document.getElementById('bpsp'+i);if(!el)return;
+    const vals=dados.map(d=>d[c]||0);
+    const W=el.clientWidth||200,H=42,min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
+    const px=(v,j)=>`${((j/(vals.length-1||1))*(W-4)+2).toFixed(1)},${(H-2-((v-min)/range)*(H-4)).toFixed(1)}`;
+    const pts=vals.map((v,j)=>px(v,j)).join(' ');
+    const curIdx=dados.findIndex(d=>d.rot===mes.rot);
+    const ptsCur=vals.slice(0,curIdx+1).map((v,j)=>px(v,j)).join(' ');
+    el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <polyline points="${pts}" fill="none" stroke="${spCores[i]}33" stroke-width="1.5" stroke-linejoin="round"/>
+      <polyline points="${ptsCur}" fill="none" stroke="${spCores[i]}" stroke-width="2" stroke-linejoin="round"/>
+    </svg>`;
+  });
+}
+
+async function renderBPP2(){
+  const fp=document.getElementById('fp');
+  const dados=await getDadosBP();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
+  const rots=dados.map(d=>d.rot);
+  const rots25=rots.filter(r=>r.endsWith('/25')),rots26=rots.filter(r=>r.endsWith('/26'));
+  const dAS=S.p2aS&&rots.includes(S.p2aS)?S.p2aS:rots25[0]||rots[0];
+  const dAE=S.p2aE&&rots.includes(S.p2aE)?S.p2aE:rots25[rots25.length-1]||rots[0];
+  const dBS=S.p2bS&&rots.includes(S.p2bS)?S.p2bS:rots26[0]||rots[0];
+  const dBE=S.p2bE&&rots.includes(S.p2bE)?S.p2bE:rots26[rots26.length-1]||rots[rots.length-1];
+  S.p2aS=dAS;S.p2aE=dAE;S.p2bS=dBS;S.p2bE=dBE;
+  const mkOpts=sel=>rots.map(r=>`<option value="${r}" ${r===sel?'selected':''}>${r}</option>`).join('');
+  const mesA=dados.find(d=>d.rot===dAE)||dados[0];
+  const mesB=dados.find(d=>d.rot===dBE)||dados[dados.length-1];
+  const df=(a,b)=>{const d=b-a,p=a?((d/Math.abs(a))*100):0;return{d,p};};
+  const MET=[
+    {l:'Total do Ativo',c:'totalAtivo',fmt:'m'},
+    {l:'Ativo Circulante',c:'atvCirculante',fmt:'m'},
+    {l:'Ativo Não Circulante',c:'atvNaoCirculante',fmt:'m'},
+    {l:'Estoques',c:'estoques',fmt:'m'},
+    {l:'Passivo Circulante',c:'pasCirculante',fmt:'m'},
+    {l:'Passivo Não Circulante',c:'pasNaoCirculante',fmt:'m'},
+    {l:'Patrimônio Líquido',c:'patrimonioLiq',fmt:'m'},
+    {l:'Liquidez Corrente',c:'liquidezCorrente',fmt:'i'},
+    {l:'Liquidez Seca',c:'liquidezSeca',fmt:'i'},
+    {l:'Grau Endividamento',c:'grauEndividamento',fmt:'i'},
+    {l:'Solvência Geral',c:'solvenciaGeral',fmt:'i'},
+    {l:'Margem Líquida %',c:'margemLiquida',fmt:'p'},
+  ];
+  const fv=(v,fmt)=>fmt==='m'?fM(v):fmt==='i'?v.toFixed(2)+'x':v.toFixed(1)+'%';
+
+  fp.innerHTML=`<div class="toolbar">
+    <div class="tg"><label>Mês A</label><select id="aE" onchange="onP2Change()">${mkOpts(dAE)}</select></div>
+    <div class="tg" style="align-self:flex-end;padding-bottom:6px;font-weight:800;color:var(--muted)">vs</div>
+    <div class="tg"><label>Mês B</label><select id="bE" onchange="onP2Change()">${mkOpts(dBE)}</select></div>
+  </div>
+  <div class="cards" style="margin-top:14px">
+    ${MET.slice(0,8).map(m=>{const{d,p}=df(mesA[m.c]||0,mesB[m.c]||0);const cls=d>=0?'good':'bad';
+      return `<div class="kcard" style="min-height:0;padding:12px">
+        <h3>${m.l}</h3>
+        <div class="kval" style="font-size:18px">${fv(mesB[m.c]||0,m.fmt)}</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px">
+          <span>A (${dAE}): ${fv(mesA[m.c]||0,m.fmt)}</span>
+        </div>
+        <div style="font-size:11px;margin-top:2px">
+          <span class="${cls}">${m.fmt==='m'?fM(d):d>=0?'+'+d.toFixed(2):d.toFixed(2)} · ${fP(p)}</span>
+        </div>
+      </div>`;}).join('')}
+  </div>
+  <div class="section"><div class="shead"><h2>Comparativo completo — ${dAE} vs ${dBE}</h2></div>
+    <div class="twrap"><table><thead><tr>
+      <th style="min-width:200px;text-align:left">Indicador</th>
+      <th>Mês A (${dAE})</th><th>Mês B (${dBE})</th>
+      <th>Diferença</th><th>Variação %</th>
+    </tr></thead><tbody>
+      ${MET.map(m=>{const{d,p}=df(mesA[m.c]||0,mesB[m.c]||0);return `<tr>
+        <td style="font-size:12px;font-weight:700;text-align:left">${m.l}</td>
+        <td class="cv">${fv(mesA[m.c]||0,m.fmt)}</td>
+        <td class="cv">${fv(mesB[m.c]||0,m.fmt)}</td>
+        <td class="cv ${dcls(d)}">${m.fmt==='m'?fM(d):d>=0?'+'+d.toFixed(2):d.toFixed(2)}</td>
+        <td class="cv ${dcls(d)}">${fP(p)}</td>
+      </tr>`;}).join('')}
+    </tbody></table></div>
+  </div>`;
+}
 // Expõe todas as funções usadas em onclick para o escopo global
 // Necessário para funcionar corretamente no GitHub Pages
 window.setPag=function(p){S.pag=p;render();}
@@ -1080,15 +1463,14 @@ window.setEmp=function(e,btn){
 }
 window.setQ=function(n,total){
   let rots;
-  if(S.modulo==='dre'){
-    rots=ARQ_DRE.operacional.map(a=>rotDRE(a));
-  } else {
-    const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]);
-    rots=lista.map(a=>rot(a));
-  }
+  if(S.modulo==='dre') rots=ARQ_DRE.operacional.map(a=>rotDRE(a));
+  else if(S.modulo==='bp') rots=ARQ_BP.operacional.map(a=>rotBP(a));
+  else{ const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]); rots=lista.map(a=>rot(a)); }
   if(n===0||n>=rots.length){S.ini=rots[0];S.fim=rots[rots.length-1];}
   else{S.ini=rots[rots.length-n];S.fim=rots[rots.length-1];}
-  if(S.modulo==='dre')renderDREP1();else renderP1();
+  if(S.modulo==='dre')renderDREP1();
+  else if(S.modulo==='bp')renderBPP1();
+  else renderP1();
 }
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('hinfo').textContent=`v2.0 · ${new Date().toLocaleDateString('pt-BR')}`;
