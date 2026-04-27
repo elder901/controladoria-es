@@ -111,6 +111,7 @@ tbody tr.rs td.ctot{background:#e4edff}
       <button class="btn active" onclick="setModulo('financeiro',this)">Financeiro</button>
       <button class="btn" onclick="setModulo('dre',this)">DRE</button>
       <button class="btn" onclick="setModulo('bp',this)">Balanço Patrimonial</button>
+      <button class="btn" onclick="setModulo('intel',this)">Inteligência</button>
     </div>
   </div>
 </div></div>
@@ -256,6 +257,7 @@ function combinar(op,hd){
 function render(){
   if(S.modulo==='dre')renderDRE();
   else if(S.modulo==='bp')renderBP();
+  else if(S.modulo==='intel')renderIntel();
   else renderFin();
 }
 function renderFin(){
@@ -1454,6 +1456,290 @@ async function renderBPP2(){
     </tbody></table></div>
   </div>`;
 }
+
+// ============================================================
+// MÓDULO INTELIGÊNCIA — Cruzamento FC + DRE + BP
+// ============================================================
+async function getDadosIntel(){
+  // Carrega os três módulos em paralelo para o mesmo conjunto de meses
+  const meses=['jan25','fev25','mar25','abr25','mai25','jun25','jul25','ago25','set25','out25','nov25','dez25','jan26','fev26','mar26'];
+  const fcArqs=ARQ.operacional;
+  const dreArqs=ARQ_DRE.operacional;
+  const bpArqs=ARQ_BP.operacional;
+
+  const [fcDados, dreDados, bpDados] = await Promise.all([
+    Promise.all(fcArqs.map(a=>loadCSV('operacional',a))),
+    Promise.all(dreArqs.map(a=>loadDRE(a))),
+    Promise.all(bpArqs.map(a=>loadBP(a))),
+  ]);
+
+  // Cruza por rótulo de mês
+  const resultado=[];
+  for(const fc of fcDados.filter(Boolean)){
+    const dre=dreDados.find(d=>d&&d.rot===fc.rot);
+    const bp=bpDados.find(d=>d&&d.rot===fc.rot);
+    if(!dre||!bp)continue;
+
+    // Encontrar BP do mês anterior para calcular variações
+    const rotIdx=resultado.length;
+    const bpAnt=rotIdx>0?resultado[rotIdx-1]?.bp:null;
+
+    resultado.push({
+      rot: fc.rot,
+      fc, dre, bp,
+      // Variações do BP (mês atual vs mês anterior no array)
+      dCaixa:     bpAnt ? bp.caixaBancos    - bpAnt.caixaBancos    : bp.caixaBancos    - bp.disponibilidades,
+      dEstoque:   bpAnt ? bp.estoques       - bpAnt.estoques       : 0,
+      dClientes:  bpAnt ? bp.contasReceber  - bpAnt.contasReceber  : 0,
+      dFornec:    bpAnt ? bp.fornecedores   - bpAnt.fornecedores   : 0,
+      dFinanc:    bpAnt ? (bp.financiamentosPC+bp.financiamentosPNC)-(bpAnt.financiamentosPC+bpAnt.financiamentosPNC) : 0,
+      dPL:        bpAnt ? bp.patrimonioLiq  - bpAnt.patrimonioLiq  : 0,
+    });
+  }
+  return resultado;
+}
+
+async function renderIntel(){
+  document.getElementById('main').innerHTML=`
+    <div class="mtabs">
+      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Página 1 · Análise Mensal</button>
+      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Página 2 · Evolução do Período</button>
+    </div>
+    <div id="fp"><div class="loading">Cruzando FC + DRE + BP...</div></div>`;
+  if(S.pag===1)renderIntelP1();else renderIntelP2();
+}
+
+async function renderIntelP1(){
+  const fp=document.getElementById('fp');
+  const dados=await getDadosIntel();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Não foi possível cruzar os dados. Verifique se FC, DRE e BP estão carregados.</div>';return;}
+
+  if(!S.ini)S.ini=dados[dados.length-1].rot;
+  const mes=dados.find(d=>d.rot===S.ini)||dados[dados.length-1];
+  const {fc,dre,bp,dCaixa,dEstoque,dClientes,dFornec,dFinanc,dPL}=mes;
+
+  // Seletor de mês
+  const opts=dados.map(d=>`<option value="${d.rot}" ${d.rot===mes.rot?'selected':''}>${d.rot}</option>`).join('');
+  const toolbar=`<div class="toolbar">
+    <div class="tg"><label>Mês de análise</label>
+      <select onchange="S.ini=this.value;renderIntelP1()">${opts}</select>
+    </div>
+    <div style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:6px">
+      Cruzando: <strong>FC + DRE + BP</strong> · ${mes.rot}
+    </div>
+  </div>`;
+
+  // 1. DESTINO DO LUCRO
+  const lucro=dre.resLucroLiq_tej||0;
+  const totalMovimento=Math.abs(dCaixa)+Math.abs(dEstoque)+Math.abs(dClientes)+Math.abs(dFornec)+Math.abs(dFinanc);
+  const barra=(v,max,cor)=>{
+    const w=max?Math.min(Math.abs(v)/max*100,100).toFixed(1):0;
+    const sinal=v>=0?'▲':'▼';
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:var(--muted)">${sinal} ${v>=0?'absorveu':'liberou'}</span>
+        <span style="font-weight:700;color:${cor}">${fM(v)}</span>
+      </div>
+      <div style="height:8px;background:#f1f5f9;border-radius:4px">
+        <div style="height:8px;width:${w}%;background:${cor};border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  };
+
+  const destinoLucro=`<div class="section">
+    <div class="shead"><h2>Destino do Lucro</h2>
+      <span class="legend">Lucro Líquido Final: <strong>${fM(lucro)}</strong></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Variações no Balanço Patrimonial</p>
+        <div style="margin-bottom:6px;font-size:12px;font-weight:700">Caixa e Bancos</div>
+        ${barra(dCaixa,totalMovimento,dCaixa>=0?'#15803d':'#b91c1c')}
+        <div style="margin-bottom:6px;font-size:12px;font-weight:700">Estoques</div>
+        ${barra(dEstoque,totalMovimento,dEstoque>=0?'#b91c1c':'#15803d')}
+        <div style="margin-bottom:6px;font-size:12px;font-weight:700">Clientes (Contas a Receber)</div>
+        ${barra(dClientes,totalMovimento,dClientes>=0?'#b91c1c':'#15803d')}
+        <div style="margin-bottom:6px;font-size:12px;font-weight:700">Fornecedores</div>
+        ${barra(dFornec,totalMovimento,dFornec>=0?'#15803d':'#b91c1c')}
+        <div style="margin-bottom:6px;font-size:12px;font-weight:700">Financiamentos</div>
+        ${barra(dFinanc,totalMovimento,dFinanc>=0?'#b91c1c':'#15803d')}
+      </div>
+      <div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Leitura</p>
+        <div style="font-size:13px;line-height:1.8">
+          ${lucro>0?`<p>✅ A empresa gerou <strong>${fM(lucro)}</strong> de lucro líquido.</p>`:`<p>⚠️ A empresa teve prejuízo de <strong>${fM(lucro)}</strong>.</p>`}
+          ${dCaixa>0?`<p>💰 Caixa <strong>aumentou</strong> ${fM(dCaixa)} — lucro se materializou em caixa.</p>`:`<p>⚠️ Caixa <strong>caiu</strong> ${fM(Math.abs(dCaixa))} apesar do lucro.</p>`}
+          ${dEstoque<0?`<p>📦 Estoques reduziram ${fM(Math.abs(dEstoque))} — <strong>liberou</strong> capital de giro.</p>`:`<p>📦 Estoques cresceram ${fM(dEstoque)} — <strong>consumiu</strong> capital de giro.</p>`}
+          ${dClientes<0?`<p>👥 Clientes pagaram mais — recebimento <strong>acelerou</strong> ${fM(Math.abs(dClientes))}.</p>`:`<p>👥 Clientes devem mais — ${fM(dClientes)} <strong>presos</strong> em contas a receber.</p>`}
+          ${dFornec<0?`<p>🏭 Fornecedores receberam — <strong>saíram</strong> ${fM(Math.abs(dFornec))} do caixa.</p>`:`<p>🏭 Prazo com fornecedores <strong>alongou</strong> — ${fM(dFornec)} de capital de terceiros.</p>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // 2. BRIDGE LUCRO → CAIXA
+  const bridgeLucro=lucro;
+  const bridgeFornec=dFornec;
+  const bridgeClientes=-dClientes;
+  const bridgeEstoque=-dEstoque;
+  const bridgeFinanc=-dFinanc;
+  const bridgeTotal=bridgeLucro+bridgeFornec+bridgeClientes+bridgeEstoque+bridgeFinanc;
+  const caixaReal=fc.varCaixa||0;
+
+  const buildBridgeBar=(label,val,cor)=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <div style="font-size:12px;min-width:200px">${label}</div>
+      <div style="flex:1;height:24px;background:#f1f5f9;border-radius:4px;position:relative;overflow:hidden">
+        <div style="height:24px;width:${Math.min(Math.abs(val)/Math.max(Math.abs(bridgeLucro),Math.abs(caixaReal),1)*80+10,95).toFixed(0)}%;background:${cor};border-radius:4px;display:flex;align-items:center;padding-left:8px">
+          <span style="font-size:11px;font-weight:700;color:white;white-space:nowrap">${fM(val)}</span>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700" class="${val>=0?'good':'bad'}">${fP(val/Math.abs(bridgeLucro||1)*100)}</div>
+    </div>`;
+
+  const bridge=`<div class="section">
+    <div class="shead"><h2>Bridge: Lucro → Caixa</h2>
+      <span class="legend">Por que o lucro não virou caixa?</span>
+    </div>
+    ${buildBridgeBar('(+) Lucro Líquido Final (DRE)',bridgeLucro,'#3b82f6')}
+    ${buildBridgeBar('(+/-) Variação Fornecedores',bridgeFornec,bridgeFornec>=0?'#15803d':'#b91c1c')}
+    ${buildBridgeBar('(+/-) Variação Clientes',bridgeClientes,bridgeClientes>=0?'#15803d':'#b91c1c')}
+    ${buildBridgeBar('(+/-) Variação Estoques',bridgeEstoque,bridgeEstoque>=0?'#15803d':'#b91c1c')}
+    ${buildBridgeBar('(+/-) Variação Financiamentos',bridgeFinanc,bridgeFinanc>=0?'#15803d':'#b91c1c')}
+    <div style="border-top:2px solid var(--line);margin:10px 0 6px"></div>
+    ${buildBridgeBar('(=) Geração de Caixa Estimada',bridgeTotal,'#8b5cf6')}
+    ${buildBridgeBar('(=) Variação de Caixa Real (FC)',caixaReal,caixaReal>=0?'#15803d':'#b91c1c')}
+  </div>`;
+
+  // 3. CICLO FINANCEIRO
+  const recLiq=dre.recLiq_tej||dre.recLiq||1;
+  const pme=bp.estoques/(recLiq/30);
+  const pmr=bp.contasReceber/(recLiq/30);
+  const pmp=bp.fornecedores/(recLiq/30);
+  const ciclo=pmr+pme-pmp;
+
+  const cicloCard=`<div class="section">
+    <div class="shead"><h2>Ciclo Financeiro</h2>
+      <span class="legend">Quantos dias o dinheiro fica preso?</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div class="aitem">
+        <div class="ak">PME — Estoque</div>
+        <div class="av">${pme.toFixed(0)} dias</div>
+        <div class="as">Tempo médio que o produto fica no estoque antes de ser vendido</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">PMR — Recebimento</div>
+        <div class="av">${pmr.toFixed(0)} dias</div>
+        <div class="as">Tempo médio para receber dos clientes após a venda</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">PMP — Pagamento</div>
+        <div class="av">${pmp.toFixed(0)} dias</div>
+        <div class="as">Tempo médio que a empresa leva para pagar fornecedores</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">Ciclo Financeiro</div>
+        <div class="av ${ciclo>30?'bad':ciclo<0?'good':''}">${ciclo.toFixed(0)} dias</div>
+        <div class="as">${ciclo<0?'✅ Negativo — fornecedores financiam o ciclo':ciclo<20?'✅ Ciclo curto e saudável':'⚠️ PME + PMR - PMP. Quanto menor, melhor.'}</div>
+      </div>
+    </div>
+    <div style="background:#f8fafc;border-radius:10px;padding:12px;font-size:12px;line-height:1.8">
+      <strong>Como ler:</strong> A empresa compra estoque → espera ${pme.toFixed(0)} dias para vender → aguarda ${pmr.toFixed(0)} dias para receber → total de <strong>${(pme+pmr).toFixed(0)} dias</strong> com capital empatado.
+      Nesse período, os fornecedores financiam <strong>${pmp.toFixed(0)} dias</strong>. O saldo a financiar é de <strong>${ciclo.toFixed(0)} dias</strong>.
+      ${ciclo<0?' Como o ciclo é negativo, os fornecedores estão, na prática, financiando o negócio — situação favorável.'
+               :` Isso representa R$ ${fM(recLiq/30*ciclo)} de capital de giro necessário.`}
+    </div>
+  </div>`;
+
+  // 4. INDICADORES CRUZADOS
+  const dívida=bp.financiamentosPC+bp.financiamentosPNC;
+  const ebitdaAnual=(dre.ebitda_tej||0)*12;
+  const cobertura=(dre.ebitda_tej||0)/(dre.despFinanceiras_tej||1);
+  const roe=((dre.resLucroLiq_tej||0)/(bp.patrimonioLiq||1))*100;
+  const roa=((dre.resLucroLiq_tej||0)/(bp.totalAtivo||1))*100;
+  const roic=((dre.ebitda_tej||0)/((bp.totalAtivo||1)-(bp.pasCirculante||0)))*100;
+  const divEbitda=ebitdaAnual>0?dívida/ebitdaAnual:0;
+
+  const indicadores=`<div class="section">
+    <div class="shead"><h2>Indicadores Cruzados</h2>
+      <span class="legend">FC + DRE + BP combinados</span>
+    </div>
+    <div class="analysis">
+      <div class="aitem">
+        <div class="ak">ROE — Retorno sobre PL</div>
+        <div class="av ${roe<0?'bad':''}">${roe.toFixed(1)}%</div>
+        <div class="as">Lucro / Patrimônio Líquido<br>${roe>10?'✅ Acima de 10% — bom retorno':roe>0?'⚠️ Positivo mas baixo':'❌ Retorno negativo'}</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">ROA — Retorno sobre Ativo</div>
+        <div class="av ${roa<0?'bad':''}">${roa.toFixed(1)}%</div>
+        <div class="as">Lucro / Total do Ativo<br>${roa>5?'✅ Ativo bem aproveitado':roa>0?'⚠️ Retorno baixo':'❌ Ativo gerando prejuízo'}</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">Dívida / EBITDA</div>
+        <div class="av ${divEbitda>3?'bad':''}">${divEbitda.toFixed(1)}x</div>
+        <div class="as">Anos de EBITDA para quitar dívidas<br>${divEbitda<2?'✅ Dívida controlada':divEbitda<4?'⚠️ Atenção ao endividamento':'❌ Endividamento elevado'}</div>
+      </div>
+      <div class="aitem">
+        <div class="ak">Qualidade do Lucro</div>
+        <div class="av ${(fc.varCaixa||0)<(dre.resLucroLiq_tej||0)*0.3?'bad':''}">${((fc.varCaixa||0)/(dre.resLucroLiq_tej||1)*100).toFixed(0)}%</div>
+        <div class="as">Caixa gerado / Lucro líquido<br>${(fc.varCaixa||0)>=(dre.resLucroLiq_tej||0)*0.5?'✅ Lucro se converte bem em caixa':'⚠️ Lucro não está virando caixa'}</div>
+      </div>
+    </div>
+  </div>`;
+
+  fp.innerHTML=toolbar+destinoLucro+bridge+cicloCard+indicadores;
+}
+
+async function renderIntelP2(){
+  const fp=document.getElementById('fp');
+  const dados=await getDadosIntel();
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
+
+  if(!S.ini)S.ini=dados[0].rot;
+  if(!S.fim)S.fim=dados[dados.length-1].rot;
+  const iI=dados.findIndex(d=>d.rot===S.ini);
+  const iF=dados.findIndex(d=>d.rot===S.fim);
+  const sl=dados.slice(iI>=0?iI:0,iF>=0?iF+1:dados.length);
+  const n=dados.length;
+
+  const opts=r=>dados.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
+  const toolbar=`<div class="toolbar">
+    <div class="tg"><label>Início</label><select onchange="S.ini=this.value;renderIntelP2()">${opts(S.ini)}</select></div>
+    <div class="tg"><label>Fim</label><select onchange="S.fim=this.value;renderIntelP2()">${opts(S.fim)}</select></div>
+    <div class="tg"><label>Atalho</label><div class="qbtns">
+      <button class="qbtn ${sl.length===3?'active':''}" onclick="setQ(3,${n})">Últ. 3 meses</button>
+      <button class="qbtn ${sl.length===6?'active':''}" onclick="setQ(6,${n})">Últ. 6 meses</button>
+      <button class="qbtn ${sl.length===12?'active':''}" onclick="setQ(12,${n})">Últ. 12 meses</button>
+      <button class="qbtn ${sl.length===dados.length?'active':''}" onclick="setQ(0,${n})">Período completo</button>
+    </div></div>
+  </div>`;
+
+  // Tabela evolução dos indicadores cruzados
+  const tabela=`<div class="section"><div class="shead"><h2>Evolução dos Indicadores — mês a mês</h2></div>
+    <div class="twrap"><table><thead><tr>
+      <th style="min-width:200px;text-align:left">Indicador</th>
+      ${sl.map(d=>`<th>${d.rot.toUpperCase()}</th>`).join('')}
+    </tr></thead><tbody>
+      ${[
+        {l:'Lucro Líquido (DRE)',fn:d=>fM(d.dre.resLucroLiq_tej||0)},
+        {l:'Variação de Caixa (FC)',fn:d=>fM(d.fc.varCaixa||0)},
+        {l:'Qualidade do Lucro %',fn:d=>{const q=d.fc.varCaixa/(d.dre.resLucroLiq_tej||1)*100;return fPS(q,0)+'%';}},
+        {l:'Ciclo Financeiro (dias)',fn:d=>{const r=d.dre.recLiq_tej||1;return ((d.bp.contasReceber+d.bp.estoques-d.bp.fornecedores)/(r/30)).toFixed(0)+'d';}},
+        {l:'PME — Estoque (dias)',fn:d=>((d.bp.estoques/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
+        {l:'PMR — Recebimento (dias)',fn:d=>((d.bp.contasReceber/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
+        {l:'PMP — Pagamento (dias)',fn:d=>((d.bp.fornecedores/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
+        {l:'ROE %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.patrimonioLiq||1)*100,1)+'%'},
+        {l:'ROA %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.totalAtivo||1)*100,1)+'%'},
+        {l:'Liquidez Corrente',fn:d=>d.bp.liquidezCorrente.toFixed(2)+'x'},
+        {l:'Dívida Total',fn:d=>fM(d.bp.financiamentosPC+d.bp.financiamentosPNC)},
+        {l:'EBITDA',fn:d=>fM(d.dre.ebitda_tej||0)},
+      ].map(row=>`<tr><th>${row.l}</th>${sl.map(d=>`<td class="cv">${row.fn(d)}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div></div>`;
+
+  fp.innerHTML=toolbar+tabela;
+}
 // Expõe todas as funções usadas em onclick para o escopo global
 // Necessário para funcionar corretamente no GitHub Pages
 window.setPag=function(p){S.pag=p;render();}
@@ -1474,11 +1760,13 @@ window.setQ=function(n,total){
   let rots;
   if(S.modulo==='dre') rots=ARQ_DRE.operacional.map(a=>rotDRE(a));
   else if(S.modulo==='bp') rots=ARQ_BP.operacional.map(a=>rotBP(a));
+  else if(S.modulo==='intel') rots=ARQ.operacional.map(a=>rot(a));
   else{ const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]); rots=lista.map(a=>rot(a)); }
   if(n===0||n>=rots.length){S.ini=rots[0];S.fim=rots[rots.length-1];}
   else{S.ini=rots[rots.length-n];S.fim=rots[rots.length-1];}
   if(S.modulo==='dre')renderDREP1();
   else if(S.modulo==='bp')renderBPP1();
+  else if(S.modulo==='intel')renderIntelP2();
   else renderP1();
 }
 document.addEventListener('DOMContentLoaded',()=>{
