@@ -112,6 +112,7 @@ tbody tr.rs td.ctot{background:#e4edff}
       <button class="btn" onclick="setModulo('dre',this)">DRE</button>
       <button class="btn" onclick="setModulo('bp',this)">Balanço Patrimonial</button>
       <button class="btn" onclick="setModulo('intel',this)">Inteligência</button>
+      <button class="btn" onclick="setModulo('prev',this)">Previsão</button>
     </div>
   </div>
 </div></div>
@@ -258,6 +259,7 @@ function render(){
   if(S.modulo==='dre')renderDRE();
   else if(S.modulo==='bp')renderBP();
   else if(S.modulo==='intel')renderIntel();
+  else if(S.modulo==='prev')renderPrevisao();
   else renderFin();
 }
 function renderFin(){
@@ -1740,6 +1742,417 @@ async function renderIntelP2(){
 
   fp.innerHTML=toolbar+tabela;
 }
+
+// ============================================================
+// MÓDULO PREVISÃO / ESTRATÉGIA
+// ============================================================
+// Parâmetros históricos calculados automaticamente dos dados reais
+// Estes valores são recalculados cada vez que o módulo carrega
+let PARAMS = {
+  pctDeducoes:  8.22,   // % de deduções sobre receita bruta
+  pctCMV:       72.7,   // % CMV sobre receita líquida
+  pctDespVar:   4.7,    // % despesas variáveis sobre receita líquida
+  despFixasMes: 2208705,// despesas fixas mensais (média histórica)
+  pctEbitda:    6.5,    // % EBITDA histórico (referência)
+  pctLucroFin:  2.3,    // % lucro final histórico (referência)
+  pme:          20,     // prazo médio estoque (dias)
+  pmr:          17,     // prazo médio recebimento (dias)
+  pmp:          21,     // prazo médio pagamento (dias)
+  recLiqMedMes: 13614346, // receita líquida média mensal histórica
+};
+
+async function calcularParams(){
+  // Recalcula os parâmetros com os dados reais carregados
+  try {
+    const [fcDados, dreDados, bpDados] = await Promise.all([
+      Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a))),
+      Promise.all(ARQ_DRE.operacional.map(a=>loadDRE(a))),
+      Promise.all(ARQ_BP.operacional.map(a=>loadBP(a))),
+    ]);
+    const validos = fcDados.filter(Boolean).map(fc=>{
+      const dre=dreDados.find(d=>d&&d.rot===fc.rot);
+      const bp=bpDados.find(d=>d&&d.rot===fc.rot);
+      if(!dre||!bp)return null;
+      const rl=dre.recLiq_tej||0;
+      const rb=dre.recBruta_tej||rl;
+      if(!rl)return null;
+      return {
+        recLiq:rl, recBruta:rb,
+        cmv: dre.cmvTotal_tej||0,
+        despVar: dre.despVariaveis_tej||0,
+        despFixas: dre.despFixas_tej||0,
+        ebitda: dre.ebitda_tej||0,
+        lucroFin: dre.resLucroLiq_tej||0,
+        estoques: bp.estoques||0,
+        clientes: bp.contasReceber||0,
+        fornec: bp.fornecedores||0,
+      };
+    }).filter(Boolean);
+    if(!validos.length)return;
+    const n=validos.length;
+    const avg=k=>validos.reduce((s,d)=>s+(d[k]||0),0)/n;
+    const avgPct=(num,den)=>validos.reduce((s,d)=>s+(d[den]?d[num]/d[den]*100:0),0)/n;
+    PARAMS = {
+      pctDeducoes: validos.reduce((s,d)=>s+(d.recBruta?((d.recBruta-d.recLiq)/d.recBruta*100):0),0)/n,
+      pctCMV:      avgPct('cmv','recLiq'),
+      pctDespVar:  avgPct('despVar','recLiq'),
+      despFixasMes:avg('despFixas'),
+      pctEbitda:   avgPct('ebitda','recLiq'),
+      pctLucroFin: avgPct('lucroFin','recLiq'),
+      pme: validos.reduce((s,d)=>s+(d.recLiq?d.estoques/(d.recLiq/30):0),0)/n,
+      pmr: validos.reduce((s,d)=>s+(d.recLiq?d.clientes/(d.recLiq/30):0),0)/n,
+      pmp: validos.reduce((s,d)=>s+(d.recLiq?d.fornec/(d.recLiq/30):0),0)/n,
+      recLiqMedMes: avg('recLiq'),
+    };
+  } catch(e){ console.log('Usando parâmetros padrão',e); }
+}
+
+async function renderPrevisao(){
+  document.getElementById('main').innerHTML=`
+    <div class="mtabs">
+      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Simulador de Faturamento</button>
+      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Projeção 12 Meses</button>
+    </div>
+    <div id="fp"><div class="loading">Carregando parâmetros históricos...</div></div>`;
+  await calcularParams();
+  if(S.pag===1)renderSimulador();else renderProjecao12();
+}
+
+function renderSimulador(){
+  const fp=document.getElementById('fp');
+  const recLiqMed=PARAMS.recLiqMedMes;
+
+  fp.innerHTML=`
+    <div class="section">
+      <div class="shead">
+        <h2>Simulador de Impacto do Faturamento</h2>
+        <span class="legend">Parâmetros calibrados com ${ARQ.operacional.length} meses históricos</span>
+      </div>
+      <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+              Receita Bruta Mensal (R$)
+            </label>
+            <input type="number" id="sim-receita" value="${Math.round(recLiqMed*1.1/(1-PARAMS.pctDeducoes/100))}"
+              style="width:100%;padding:10px;border:2px solid var(--accent);border-radius:10px;font-size:16px;font-weight:700;text-align:right"
+              oninput="atualizarSimulador()"/>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Média histórica: ${fM(recLiqMed/(1-PARAMS.pctDeducoes/100))}/mês</div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+              Estoques variam?
+            </label>
+            <select id="sim-estoque" onchange="atualizarSimulador()"
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:13px">
+              <option value="0">Não — estoques estáveis</option>
+              <option value="1">Sim — proporcional às vendas</option>
+              <option value="-1">Reduzindo — queima de estoque</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+              Investimentos no mês
+            </label>
+            <input type="number" id="sim-invest" value="0"
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;text-align:right"
+              oninput="atualizarSimulador()"/>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);background:white;border-radius:8px;padding:10px">
+          <strong>Parâmetros históricos usados:</strong>
+          CMV ${PARAMS.pctCMV.toFixed(1)}% · Desp.Var ${PARAMS.pctDespVar.toFixed(1)}% · 
+          Desp.Fixas ${fM(PARAMS.despFixasMes)}/mês · 
+          Deduções ${PARAMS.pctDeducoes.toFixed(1)}% · 
+          PME ${PARAMS.pme.toFixed(0)}d · PMR ${PARAMS.pmr.toFixed(0)}d · PMP ${PARAMS.pmp.toFixed(0)}d
+          <br><a href="#" onclick="abrirEditarParams();return false" style="color:var(--accent)">✏️ Ajustar parâmetros manualmente</a>
+        </div>
+      </div>
+      <div id="sim-resultado"></div>
+    </div>
+    <div id="sim-params-editor" style="display:none" class="section">
+      <div class="shead"><h2>Ajustar Parâmetros</h2></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        ${[
+          {id:'p-cmv',label:'CMV %',val:PARAMS.pctCMV.toFixed(1)},
+          {id:'p-despvar',label:'Desp. Var %',val:PARAMS.pctDespVar.toFixed(1)},
+          {id:'p-deduc',label:'Deduções %',val:PARAMS.pctDeducoes.toFixed(1)},
+          {id:'p-despfix',label:'Desp. Fixas R$',val:Math.round(PARAMS.despFixasMes)},
+          {id:'p-pme',label:'PME (dias)',val:Math.round(PARAMS.pme)},
+          {id:'p-pmr',label:'PMR (dias)',val:Math.round(PARAMS.pmr)},
+          {id:'p-pmp',label:'PMP (dias)',val:Math.round(PARAMS.pmp)},
+        ].map(p=>`<div>
+          <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px">${p.label}</label>
+          <input type="number" id="${p.id}" value="${p.val}" step="0.1"
+            style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"
+            oninput="salvarParams();atualizarSimulador()"/>
+        </div>`).join('')}
+      </div>
+    </div>`;
+
+  atualizarSimulador();
+}
+
+window.abrirEditarParams=function(){
+  const el=document.getElementById('sim-params-editor');
+  el.style.display=el.style.display==='none'?'block':'none';
+};
+
+window.salvarParams=function(){
+  const g=id=>{const el=document.getElementById(id);return el?parseFloat(el.value)||0:0;};
+  PARAMS.pctCMV      = g('p-cmv');
+  PARAMS.pctDespVar  = g('p-despvar');
+  PARAMS.pctDeducoes = g('p-deduc');
+  PARAMS.despFixasMes= g('p-despfix');
+  PARAMS.pme         = g('p-pme');
+  PARAMS.pmr         = g('p-pmr');
+  PARAMS.pmp         = g('p-pmp');
+};
+
+window.atualizarSimulador=function(){
+  const recBruta = parseFloat(document.getElementById('sim-receita')?.value)||0;
+  const estoqueMode = parseInt(document.getElementById('sim-estoque')?.value)||0;
+  const invest = parseFloat(document.getElementById('sim-invest')?.value)||0;
+  if(!recBruta)return;
+
+  // DRE PROJETADA
+  const deducoes   = recBruta * PARAMS.pctDeducoes/100;
+  const recLiq     = recBruta - deducoes;
+  const cmv        = recLiq * PARAMS.pctCMV/100;
+  const margVenda  = recLiq - cmv;
+  const despVar    = recLiq * PARAMS.pctDespVar/100;
+  const margContr  = margVenda - despVar;
+  const despFixas  = PARAMS.despFixasMes;
+  const ebitda     = margContr - despFixas;
+  const lucroLiq   = ebitda * (PARAMS.pctLucroFin/PARAMS.pctEbitda||1); // proporção histórica
+
+  // CAPITAL DE GIRO PROJETADO
+  const estNec     = recLiq/30 * PARAMS.pme;  // estoque necessário
+  const clientesNec= recLiq/30 * PARAMS.pmr;  // contas a receber necessárias
+  const fornecNec  = recLiq/30 * PARAMS.pmp;  // fornecedores projetados
+
+  // VARIAÇÃO DE CAPITAL DE GIRO vs média histórica
+  const dEstoque   = estoqueMode===0 ? 0 : estoqueMode===1 ? estNec - PARAMS.recLiqMedMes/30*PARAMS.pme : -(PARAMS.recLiqMedMes/30*PARAMS.pme*0.1);
+  const dClientes  = clientesNec - PARAMS.recLiqMedMes/30*PARAMS.pmr;
+  const dFornec    = fornecNec   - PARAMS.recLiqMedMes/30*PARAMS.pmp;
+
+  // GERAÇÃO DE CAIXA
+  const geraCaixa  = ebitda - dEstoque - dClientes + dFornec - invest;
+
+  // Montar resultado
+  const row=(label,val,destaque,indent)=>{
+    const cls=val<0?'bad':val>0?'good':'';
+    return `<tr class="${destaque?'rs':''}">
+      <td style="font-size:13px;padding:8px 10px;text-align:left;${indent?'padding-left:24px;color:var(--muted)':''}">${label}</td>
+      <td style="font-size:13px;font-weight:700;text-align:right;padding:8px 10px" class="${destaque?cls:''}">${fM(val)}</td>
+      <td style="font-size:12px;text-align:right;padding:8px 10px;color:var(--muted)">${recLiq?fPS(val/recLiq*100,1)+'%':''}</td>
+    </tr>`;
+  };
+
+  const pctVar=(val,base)=>base?((val-base)/Math.abs(base)*100):0;
+  const histMedio=PARAMS.recLiqMedMes;
+  const compareRow=(label,val,hist)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+      <span style="color:var(--muted)">${label}</span>
+      <div style="text-align:right">
+        <span style="font-weight:700">${fM(val)}</span>
+        <span class="${dcls(val-hist)}" style="margin-left:8px;font-size:11px">${fP(pctVar(val,hist))} vs média</span>
+      </div>
+    </div>`;
+
+  document.getElementById('sim-resultado').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div class="section" style="margin-bottom:10px">
+          <div class="shead"><h2>DRE Projetada</h2><span class="legend">mês simulado</span></div>
+          <div class="twrap">
+            <table style="width:100%">
+              <thead><tr>
+                <th style="text-align:left;padding:8px 10px">Linha</th>
+                <th style="text-align:right;padding:8px 10px">Valor</th>
+                <th style="text-align:right;padding:8px 10px">A.V.%</th>
+              </tr></thead>
+              <tbody>
+                ${row('Receita Bruta',recBruta,false,false)}
+                ${row('(-) Deduções / Impostos',-deducoes,false,true)}
+                ${row('(=) Receita Operacional Líquida',recLiq,true,false)}
+                ${row('(-) CMV',-cmv,false,true)}
+                ${row('(=) Margem de Venda',margVenda,true,false)}
+                ${row('(-) Despesas Variáveis',-despVar,false,true)}
+                ${row('(=) Margem de Contribuição',margContr,true,false)}
+                ${row('(-) Despesas Fixas',-despFixas,false,true)}
+                ${row('(=) EBITDA',ebitda,true,false)}
+                ${row('(=) Lucro Líquido Estimado',lucroLiq,true,false)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section" style="margin-bottom:10px">
+          <div class="shead"><h2>Impacto no Caixa</h2></div>
+          <table style="width:100%">
+            <tbody>
+              <tr class="rs"><td style="padding:8px 10px;font-size:13px">EBITDA gerado</td>
+                <td style="text-align:right;font-weight:700;padding:8px 10px" class="${ebitda>=0?'good':'bad'}">${fM(ebitda)}</td></tr>
+              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Estoques</td>
+                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(-dEstoque)}">${fM(-dEstoque)}</td></tr>
+              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Clientes</td>
+                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(-dClientes)}">${fM(-dClientes)}</td></tr>
+              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Fornecedores</td>
+                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(dFornec)}">${fM(dFornec)}</td></tr>
+              ${invest>0?`<tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(-) Investimentos</td>
+                <td style="text-align:right;font-size:12px;padding:6px 10px;color:var(--bad)">${fM(-invest)}</td></tr>`:''}
+              <tr class="rs"><td style="padding:8px 10px;font-size:13px">Geração de Caixa Estimada</td>
+                <td style="text-align:right;font-weight:700;padding:8px 10px" class="${geraCaixa>=0?'good':'bad'}">${fM(geraCaixa)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="section">
+          <div class="shead"><h2>Capital de Giro Necessário</h2></div>
+          ${compareRow('Estoque necessário',estNec,PARAMS.recLiqMedMes/30*PARAMS.pme)}
+          ${compareRow('Clientes (a receber)',clientesNec,PARAMS.recLiqMedMes/30*PARAMS.pmr)}
+          ${compareRow('Fornecedores (a pagar)',fornecNec,PARAMS.recLiqMedMes/30*PARAMS.pmp)}
+          <div style="margin-top:10px;padding:10px;background:#f0f5ff;border-radius:8px;font-size:12px;line-height:1.7">
+            <strong>Necessidade líquida de CG:</strong> ${fM(estNec+clientesNec-fornecNec)}<br>
+            Ciclo financeiro projetado: <strong>${(PARAMS.pme+PARAMS.pmr-PARAMS.pmp).toFixed(0)} dias</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="shead"><h2>Comparação com histórico</h2></div>
+      <div class="cards">
+        ${[
+          {t:'Receita Líquida',v:recLiq,h:histMedio},
+          {t:'EBITDA',v:ebitda,h:histMedio*PARAMS.pctEbitda/100},
+          {t:'Lucro Líquido',v:lucroLiq,h:histMedio*PARAMS.pctLucroFin/100},
+          {t:'Geração de Caixa',v:geraCaixa,h:PARAMS.recLiqMedMes*PARAMS.pctLucroFin/100},
+        ].map(it=>{
+          const d=it.v-it.h;
+          const p=it.h?(d/Math.abs(it.h)*100):0;
+          return `<div class="kcard" style="min-height:0;padding:12px">
+            <h3>${it.t}</h3>
+            <div class="kval ${it.v<0?'bad':''}" style="font-size:20px">${fM(it.v)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Média histórica: ${fM(it.h)}</div>
+            <div style="font-size:12px;margin-top:2px"><span class="${dcls(d)}">${fM(d)} · ${fP(p)}</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+};
+
+async function renderProjecao12(){
+  const fp=document.getElementById('fp');
+  const recBase=PARAMS.recLiqMedMes;
+
+  fp.innerHTML=`
+    <div class="section">
+      <div class="shead"><h2>Projeção 12 Meses</h2>
+        <span class="legend">Ajuste o crescimento mensal e veja o impacto acumulado</span>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+            Receita Base (mês 1) R$
+          </label>
+          <input type="number" id="proj-base" value="${Math.round(recBase)}"
+            style="padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;width:200px;text-align:right"
+            oninput="atualizarProjecao()"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+            Crescimento mensal %
+          </label>
+          <input type="number" id="proj-cresc" value="1.5" step="0.5"
+            style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:140px;text-align:right"
+            oninput="atualizarProjecao()"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
+            Mês de início
+          </label>
+          <select id="proj-mesini" onchange="atualizarProjecao()"
+            style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
+            ${['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27'].map(m=>`<option>${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="proj-resultado"></div>
+    </div>`;
+
+  atualizarProjecao();
+}
+
+window.atualizarProjecao=function(){
+  const base   = parseFloat(document.getElementById('proj-base')?.value)||PARAMS.recLiqMedMes;
+  const cresc  = parseFloat(document.getElementById('proj-cresc')?.value)||0;
+  const mesIni = document.getElementById('proj-mesini')?.value||'abr/26';
+
+  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const [mesStr,anoStr]=mesIni.split('/');
+  let iMes=meses.indexOf(mesStr);
+  let iAno=parseInt('20'+anoStr);
+
+  let caixaAcum=0;
+  let rows='';
+  let totalRecLiq=0,totalEbitda=0,totalLucro=0,totalCaixa=0;
+
+  for(let i=0;i<12;i++){
+    const recLiq  = base * Math.pow(1+cresc/100, i);
+    const recBruta= recLiq/(1-PARAMS.pctDeducoes/100);
+    const cmv     = recLiq * PARAMS.pctCMV/100;
+    const despVar = recLiq * PARAMS.pctDespVar/100;
+    const ebitda  = recLiq - cmv - despVar - PARAMS.despFixasMes;
+    const lucro   = ebitda * (PARAMS.pctLucroFin/PARAMS.pctEbitda||1);
+    // Sem variação de CG (estoque estável)
+    const caixaMes= ebitda;
+    caixaAcum    += caixaMes;
+    totalRecLiq  += recLiq;
+    totalEbitda  += ebitda;
+    totalLucro   += lucro;
+    totalCaixa   += caixaMes;
+
+    const rot=meses[iMes]+'/'+String(iAno).slice(2);
+    iMes=(iMes+1)%12;
+    if(iMes===0)iAno++;
+
+    rows+=`<tr>
+      <td style="font-weight:700;padding:7px 10px">${rot}</td>
+      <td class="cv">${fM(recLiq)}</td>
+      <td class="cv">${fM(cmv)}</td>
+      <td class="cv">${fM(recLiq-cmv-despVar)}</td>
+      <td class="cv">${fM(ebitda)}</td>
+      <td class="cv ${ebitda>0?'good':'bad'}">${fPS(ebitda/recLiq*100,1)}%</td>
+      <td class="cv ${lucro>0?'good':'bad'}">${fM(lucro)}</td>
+      <td class="cv ${caixaMes>0?'good':'bad'}">${fM(caixaMes)}</td>
+      <td class="cv ${caixaAcum>0?'good':'bad'}">${fM(caixaAcum)}</td>
+    </tr>`;
+  }
+
+  document.getElementById('proj-resultado').innerHTML=`
+    <div class="cards" style="margin-bottom:14px">
+      ${[
+        {t:'Receita Líquida Total',v:totalRecLiq},
+        {t:'EBITDA Total',v:totalEbitda},
+        {t:'Lucro Líquido Total',v:totalLucro},
+        {t:'Geração de Caixa Total',v:totalCaixa},
+      ].map(it=>`<div class="kcard" style="min-height:0;padding:12px">
+        <h3>${it.t}</h3>
+        <div class="kval ${it.v<0?'bad':''}" style="font-size:20px">${fM(it.v)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Média mensal: ${fM(it.v/12)}</div>
+      </div>`).join('')}
+    </div>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th style="text-align:left">Mês</th>
+        <th>Rec. Líquida</th><th>CMV</th><th>Marg. Contrib.</th>
+        <th>EBITDA</th><th>Margem %</th><th>Lucro Liq.</th>
+        <th>Caixa Mês</th><th>Caixa Acum.</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+};
 // Expõe todas as funções usadas em onclick para o escopo global
 // Necessário para funcionar corretamente no GitHub Pages
 window.setPag=function(p){S.pag=p;render();}
