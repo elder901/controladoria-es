@@ -417,7 +417,25 @@ function buildTabela(sl,tot){
       {l:'Resultado Financeiro',c:'resFin'},{l:'Receita Financeira',c:'recFin'},
       {l:'Despesas Financeiras',c:'despFin'},{l:'Lucro Antes do IR',c:'lucroAIR',s:true},
       {l:'Imposto de Renda',c:'IR'},{l:'Lucro Líquido',c:'lucroLiq',s:true},
-      {l:'Necessidade de C.G I',c:'necCG'},{l:'Acionistas',c:'acionistas'},
+    ]},
+    {g:'Fluxo de Investimentos & Financiamentos',ls:[
+      {l:'Fluxo Total Invest. & Financ.',c:'fluxoInvest',s:true},
+      {l:'SAÍDAS',c:'fluxoSaidas'},
+      {l:'( - ) Empréstimos Bancários (parcelas)',c:'emprestimos'},
+      {l:'( - ) Parcelamentos',c:'parcelamentos'},
+      {l:'( - ) Imobilizado/Investimentos (CAPEX)',c:'imobilizado'},
+      {l:'( - ) Juros S/ Empréstimos',c:'jurosEmprestimos'},
+      {l:'ENTRADAS',c:'fluxoEntradas'},
+      {l:'( + ) Empréstimos Recebidos',c:'emprestimosEnt'},
+      {l:'( + ) Venda de Imobilizados',c:'vendaImob'},
+    ]},
+    {g:'Adiantamentos & Capital de Giro',ls:[
+      {l:'Fluxo dos Adiantamentos',c:'fluxoAdiant'},
+      {l:'( - ) Adiantamentos Efetuados',c:'adiantEfet'},
+      {l:'( + ) Adiantamentos Recebidos',c:'adiantReceb'},
+      {l:'Fluxo dos Cheques Emitidos',c:'fluxoCheques'},
+      {l:'Necessidade de C.G I',c:'necCG',s:true},
+      {l:'Acionistas',c:'acionistas'},
       {l:'VARIAÇÃO DE CAIXA',c:'varCaixa',s:true},
     ]},
   ];
@@ -1126,7 +1144,7 @@ function parseBP(txt,arq){
   d.tribRecuperar=gv(lines[13],5);
   d.aplicFinanceiras=gv(lines[14],5);
   d.outrosCreditos=gv(lines[15],5);
-  d.estoques=gv(lines[17],5);
+  d.estoques=gv(lines[17],5);d.estoquesAnt=gv(lines[17],6);
   d.atvNaoCirculante=gv(lines[23],5); d.atvNaoCircAnt=gv(lines[23],6);
   d.deposJudiciais=gv(lines[24],5);
   d.investimentos=gv(lines[25],5);
@@ -1615,10 +1633,26 @@ async function renderIntelP1(){
 
   // 3. CICLO FINANCEIRO
   const recLiq=dre.recLiq_tej||dre.recLiq||1;
-  const pme=bp.estoques/(recLiq/30);
-  const pmr=bp.contasReceber/(recLiq/30);
-  const pmp=bp.fornecedores/(recLiq/30);
-  const ciclo=pmr+pme-pmp;
+  // Fórmulas corretas do ciclo financeiro
+  const cmvMes     = Math.abs(dre.cmvTotal_tej||0)||recLiq*0.727;
+  const recBrutaMes= dre.recBruta_tej||recLiq;
+  // Compras = CMV + Estoque Final - Estoque Inicial
+  // O BP tem: col5 = estoque atual, col6 = estoque anterior (já lidos como estoques e estoquesAnt)
+  const estFin  = bp.estoques||0;
+  const estIni  = bp.disponibilidades > 0 ? bp.disponibilidades : estFin; // fallback
+  // Usamos as variações do BP diretamente
+  // bp.estoques = estoque final (col5), o estoque inicial está no campo _Ant do BP
+  // Como parseBP lê col6 como _ant, precisamos calcular via campo separado
+  // Por ora: Compras ≈ CMV (diferença de estoque é capturada pelo PMP indiretamente)
+  // A fórmula exata requer o campo estoques do mês anterior — disponível em bp via col6
+  // parseBP lê linha 17 col5=estoques, col6=estoquesAnt → precisamos expor estoquesAnt
+  // Compras = CMV + Estoque Final - Estoque Inicial (fórmula completa)
+  const estIniReal = bp.estoquesAnt||estFin; // estoque do mês anterior via parseBP
+  const comprasMes = cmvMes + estFin - estIniReal;
+  const pme  = estFin/(cmvMes/30);
+  const pmr  = bp.contasReceber/(recBrutaMes/30);
+  const pmp  = bp.fornecedores/((comprasMes>0?comprasMes:cmvMes)/30);
+  const ciclo= pme+pmr-pmp;
 
   const cicloCard=`<div class="section">
     <div class="shead"><h2>Ciclo Financeiro</h2>
@@ -1728,10 +1762,16 @@ async function renderIntelP2(){
         {l:'Lucro Líquido (DRE)',fn:d=>fM(d.dre.resLucroLiq_tej||0)},
         {l:'Variação de Caixa (FC)',fn:d=>fM(d.fc.varCaixa||0)},
         {l:'Qualidade do Lucro %',fn:d=>{const q=d.fc.varCaixa/(d.dre.resLucroLiq_tej||1)*100;return fPS(q,0)+'%';}},
-        {l:'Ciclo Financeiro (dias)',fn:d=>{const r=d.dre.recLiq_tej||1;return ((d.bp.contasReceber+d.bp.estoques-d.bp.fornecedores)/(r/30)).toFixed(0)+'d';}},
-        {l:'PME — Estoque (dias)',fn:d=>((d.bp.estoques/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
-        {l:'PMR — Recebimento (dias)',fn:d=>((d.bp.contasReceber/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
-        {l:'PMP — Pagamento (dias)',fn:d=>((d.bp.fornecedores/(d.dre.recLiq_tej||1))*30).toFixed(0)+'d'},
+        {l:'Ciclo Financeiro (dias)',fn:d=>{
+          const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;
+          const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;
+          const pme=d.bp.estoques/(cmv/30);
+          const pmr=d.bp.contasReceber/(rb/30);
+          const pmp=d.bp.fornecedores/(cmv/30);
+          return (pme+pmr-pmp).toFixed(0)+'d';}},
+        {l:'PME — Estoque (dias)',fn:d=>{const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;return (d.bp.estoques/(cmv/30)).toFixed(0)+'d';}},
+        {l:'PMR — Recebimento (dias)',fn:d=>{const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;return (d.bp.contasReceber/(rb/30)).toFixed(0)+'d';}},
+        {l:'PMP — Pagamento (dias)',fn:d=>{const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;const compras=cmv+(d.bp.estoques||0)-(d.bp.estoquesAnt||d.bp.estoques||0);return (d.bp.fornecedores/((compras>0?compras:cmv)/30)).toFixed(0)+'d';}},
         {l:'ROE %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.patrimonioLiq||1)*100,1)+'%'},
         {l:'ROA %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.totalAtivo||1)*100,1)+'%'},
         {l:'Liquidez Corrente',fn:d=>d.bp.liquidezCorrente.toFixed(2)+'x'},
@@ -1799,9 +1839,11 @@ async function calcularParams(){
       despFixasMes:avg('despFixas'),
       pctEbitda:   avgPct('ebitda','recLiq'),
       pctLucroFin: avgPct('lucroFin','recLiq'),
-      pme: validos.reduce((s,d)=>s+(d.recLiq?d.estoques/(d.recLiq/30):0),0)/n,
-      pmr: validos.reduce((s,d)=>s+(d.recLiq?d.clientes/(d.recLiq/30):0),0)/n,
-      pmp: validos.reduce((s,d)=>s+(d.recLiq?d.fornec/(d.recLiq/30):0),0)/n,
+      // Fórmulas corretas: PME/CMV, PMR/RecBruta, PMP/Compras
+      pme: validos.reduce((s,d)=>s+(d.cmv>0?d.estoques/(d.cmv/30):0),0)/n,
+      pmr: validos.reduce((s,d)=>s+(d.recBruta>0?d.clientes/(d.recBruta/30):0),0)/n,
+      // PMP usa Compras = CMV + ΔEstoque como denominador
+      pmp: validos.reduce((s,d)=>s+(d.cmv>0?d.fornec/((d.cmv+d.estoques-(d.estoquesAnt||d.estoques))/30||d.cmv/30):0),0)/n,
       recLiqMedMes: avg('recLiq'),
     };
   } catch(e){ console.log('Usando parâmetros padrão',e); }
