@@ -2427,13 +2427,18 @@ function renderBalKPIs(bal){
   const cmv    =bal.contas.find(c=>c.classif==='3.2');
   const desp   =bal.contas.find(c=>c.classif==='3.3');
 
+  // Buscar mais grupos
+  const pas     = bal.contas.find(c=>c.classif==='2');
+  const pnc     = bal.contas.find(c=>c.classif==='2.2');
+  const desp3   = bal.contas.find(c=>c.classif==='3.3');
+
   const kpis=[
-    {t:'Total do Ativo',    v:ativo?ativo[u].sf:0,   cor:'#3b82f6'},
-    {t:'Passivo Circulante',v:pc?pc[u].sf:0,         cor:'#ef4444'},
-    {t:'Patrimônio Líquido',v:pl?pl[u].sf:0,         cor:'#15803d'},
-    {t:'Receitas do Mês',   v:rec?rec[u].deb+rec[u].cred:0, cor:'#8b5cf6'},
-    {t:'CMV do Mês',        v:cmv?cmv[u].deb:0,      cor:'#f59e0b'},
-    {t:'Desp. Operacionais',v:desp?desp[u].deb:0,    cor:'#06b6d4'},
+    {t:'Total do Ativo',      v:ativo  ? ativo[u].sf  : 0,  cor:'#3b82f6'},
+    {t:'Total do Passivo',    v:pas    ? pas[u].sf    : 0,  cor:'#ef4444'},
+    {t:'Patrimônio Líquido',  v:pl     ? pl[u].sf     : 0,  cor:'#15803d'},
+    {t:'Receitas do Mês',     v:rec    ? rec[u].cred-rec[u].deb : 0, cor:'#8b5cf6'},
+    {t:'CMV do Mês',          v:cmv    ? cmv[u].deb-cmv[u].cred : 0, cor:'#f59e0b'},
+    {t:'Despesas Operacionais',v:desp3 ? desp3[u].deb-desp3[u].cred : 0, cor:'#06b6d4'},
   ];
 
   document.getElementById('bal-kpis').innerHTML=`<div class="cards">
@@ -2492,15 +2497,10 @@ function renderBalContas(bal){
       <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:${fw}">${fM(v.si)}</td>
       <td style="padding:6px 10px;font-size:12px;text-align:right;color:#1d4ed8">${fM(v.deb)}</td>
       <td style="padding:6px 10px;font-size:12px;text-align:right;color:#15803d">${fM(v.cred)}</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#7c3aed;font-weight:${isSint?'700':'400'}">${(()=>{
-        // Movimento pela natureza contábil da conta
-        // Grupo 1 (Ativo) e 3.2/3.3/3.4 (Custos/Despesas) = natureza devedora: Déb - Cred
-        // Grupo 2 (Passivo/PL) e 3.1 (Receitas) = natureza credora: Cred - Déb
-        const g=c.classif.split('.')[0];
-        const sub=c.classif.split('.')[1]||'';
-        const devedora=(g==='1')||(g==='3'&&sub!=='1');
-        return fM(devedora ? v.deb-v.cred : v.cred-v.deb);
-      })()}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#7c3aed;font-weight:${isSint?'700':'400'}">${
+        // Usa o DB/CR do próprio campo — natureza real da conta
+        fM(c.dbcr==='DB' ? v.deb-v.cred : v.cred-v.deb)
+      }</td>
       <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:700;color:${cor}">${fM(sf)}</td>
       <td style="padding:6px 10px;font-size:11px;text-align:center;font-weight:700;color:${dbcr==='DB'?'#1d4ed8':'#15803d'}">${dbcr}</td>
       ${v.orc?`<td style="padding:6px 10px;font-size:11px;text-align:right;color:var(--muted)">${fM(v.orc)}</td>
