@@ -1145,6 +1145,12 @@ function parseBP(txt,arq){
   d.aplicFinanceiras=gv(lines[14],5);
   d.outrosCreditos=gv(lines[15],5);
   d.estoques=gv(lines[17],5);d.estoquesAnt=gv(lines[17],6);
+  d.caixaBancosAnt    =gv(lines[9],6);
+  d.contasReceberAnt  =gv(lines[11],6);
+  d.fornecedoresAnt   =gv(lines[33],6);
+  d.financiamentoPCAnt=gv(lines[38],6);
+  d.financiamentoPNCAnt=gv(lines[44],6);
+  d.patrimonioLiqAnt  =gv(lines[47],6);
   d.atvNaoCirculante=gv(lines[23],5); d.atvNaoCircAnt=gv(lines[23],6);
   d.deposJudiciais=gv(lines[24],5);
   d.investimentos=gv(lines[25],5);
@@ -1508,12 +1514,13 @@ async function getDadosIntel(){
       rot: fc.rot,
       fc, dre, bp,
       // Variações do BP (mês atual vs mês anterior no array)
-      dCaixa:     bpAnt ? bp.caixaBancos    - bpAnt.caixaBancos    : bp.caixaBancos    - bp.disponibilidades,
-      dEstoque:   bpAnt ? bp.estoques       - bpAnt.estoques       : 0,
-      dClientes:  bpAnt ? bp.contasReceber  - bpAnt.contasReceber  : 0,
-      dFornec:    bpAnt ? bp.fornecedores   - bpAnt.fornecedores   : 0,
-      dFinanc:    bpAnt ? (bp.financiamentosPC+bp.financiamentosPNC)-(bpAnt.financiamentosPC+bpAnt.financiamentosPNC) : 0,
-      dPL:        bpAnt ? bp.patrimonioLiq  - bpAnt.patrimonioLiq  : 0,
+      // Usa col6 do próprio BP (mês anterior) — mais confiável que comparar arrays
+      dCaixa:    bp.caixaBancos   - (bp.caixaBancosAnt  ||bp.caixaBancos),
+      dEstoque:  bp.estoques      - (bp.estoquesAnt     ||bp.estoques),
+      dClientes: bp.contasReceber - (bp.contasReceberAnt||bp.contasReceber),
+      dFornec:   bp.fornecedores  - (bp.fornecedoresAnt ||bp.fornecedores),
+      dFinanc:   (bp.financiamentosPC+bp.financiamentosPNC) - ((bp.financiamentosPCAnt||bp.financiamentosPC)+(bp.financiamentoPNCAnt||bp.financiamentosPNC)),
+      dPL:       bp.patrimonioLiq - (bp.patrimonioLiqAnt||bp.patrimonioLiq),
     });
   }
   return resultado;
@@ -1591,19 +1598,21 @@ async function renderIntelP1(){
           ${dCaixa>0?`<p>💰 Caixa <strong>aumentou</strong> ${fM(dCaixa)} — lucro se materializou em caixa.</p>`:`<p>⚠️ Caixa <strong>caiu</strong> ${fM(Math.abs(dCaixa))} apesar do lucro.</p>`}
           ${dEstoque<0?`<p>📦 Estoques reduziram ${fM(Math.abs(dEstoque))} — <strong>liberou</strong> capital de giro.</p>`:`<p>📦 Estoques cresceram ${fM(dEstoque)} — <strong>consumiu</strong> capital de giro.</p>`}
           ${dClientes<0?`<p>👥 Clientes pagaram mais — recebimento <strong>acelerou</strong> ${fM(Math.abs(dClientes))}.</p>`:`<p>👥 Clientes devem mais — ${fM(dClientes)} <strong>presos</strong> em contas a receber.</p>`}
-          ${dFornec<0?`<p>🏭 Fornecedores receberam — <strong>saíram</strong> ${fM(Math.abs(dFornec))} do caixa.</p>`:`<p>🏭 Prazo com fornecedores <strong>alongou</strong> — ${fM(dFornec)} de capital de terceiros.</p>`}
+          ${dFornec<0?`<p>🏭 Fornecedores receberam R$ ${fM(Math.abs(dFornec))} — <strong>saiu</strong> do caixa (pagamento de dívida com fornecedor).</p>`:`<p>🏭 Prazo com fornecedores <strong>alongou</strong> R$ ${fM(dFornec)} — capital de terceiros financiando a operação.</p>`}
         </div>
       </div>
     </div>
   </div>`;
 
   // 2. BRIDGE LUCRO → CAIXA
-  const bridgeLucro=lucro;
-  const bridgeFornec=dFornec;
-  const bridgeClientes=-dClientes;
-  const bridgeEstoque=-dEstoque;
-  const bridgeFinanc=-dFinanc;
-  const bridgeTotal=bridgeLucro+bridgeFornec+bridgeClientes+bridgeEstoque+bridgeFinanc;
+  const bridgeLucro   = lucro;
+  // Regra: aumento de passivo (fornecedor) = entra caixa; queda = sai caixa
+  // Regra: aumento de ativo (clientes/estoque) = sai caixa; queda = entra caixa
+  const bridgeFornec  = dFornec;      // ΔFornecedor: + = financiou mais = bom para caixa
+  const bridgeClientes= -dClientes;   // ΔClientes: + = preso em receber = ruim para caixa (invertido)
+  const bridgeEstoque = -dEstoque;    // ΔEstoque: + = comprou mais = ruim para caixa (invertido)
+  const bridgeFinanc  = dFinanc;      // ΔFinanciamento: + = tomou mais dívida = entra caixa
+  const bridgeTotal   = bridgeLucro+bridgeFornec+bridgeClientes+bridgeEstoque+bridgeFinanc;
   const caixaReal=fc.varCaixa||0;
 
   const buildBridgeBar=(label,val,cor)=>`
@@ -1617,44 +1626,94 @@ async function renderIntelP1(){
       <div style="font-size:11px;font-weight:700" class="${val>=0?'good':'bad'}">${fP(val/Math.abs(bridgeLucro||1)*100)}</div>
     </div>`;
 
+  // Dados adicionais do BP para bridge completo
+  const dImobilizado = bp.imobilizado - (bp.imobilizadoAnt||bp.imobilizado);
+  const dFinancLP    = bp.financiamentosPNC - (bp.financiamentoPNCAnt||bp.financiamentosPNC);
+  const dOutrasObg   = (bp.outrasObrig||0) - (bp.outrasObrigAnt||bp.outrasObrig||0);
+  const dSalarios    = (bp.salariosPagar||0) - (bp.salariosPagarAnt||bp.salariosPagar||0);
+  const dFiscais     = (bp.obrigFiscais||0) - (bp.obrigFiscaisAnt||bp.obrigFiscais||0);
+
+  // CAMADA 1 — Capital de Giro
+  const c1 = bridgeLucro + bridgeClientes + bridgeFornec + bridgeEstoque;
+  // CAMADA 2 — Investimentos e Financiamentos
+  const c2 = -dImobilizado + bridgeFinanc + dFinancLP;
+  // CAMADA 3 — Outros passivos operacionais
+  const c3 = dSalarios + dFiscais + dOutrasObg;
+  // Total estimado
+  const estimadoTotal = c1 + c2 + c3;
+  const residuo = caixaReal - estimadoTotal;
+
+  const bBar=(label,val,ref,nota)=>{
+    const maxV=Math.abs(bridgeLucro)||1;
+    const w=Math.min(Math.abs(val)/maxV*80+5,95).toFixed(0);
+    const cor=val>=0?'#15803d':'#b91c1c';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="font-size:11px;min-width:210px;color:var(--ink)">${label}</div>
+      <div style="flex:1;height:22px;background:#f1f5f9;border-radius:4px;overflow:hidden">
+        <div style="height:22px;width:${w}%;background:${cor};border-radius:4px;display:flex;align-items:center;padding-left:6px">
+          <span style="font-size:10px;font-weight:700;color:white;white-space:nowrap">${fM(val)}</span>
+        </div>
+      </div>
+      <div style="font-size:11px;min-width:55px;text-align:right;font-weight:700;color:${cor}">${val>=0?'+':''}${fPS(val/Math.abs(bridgeLucro||1)*100,0)}%</div>
+      ${nota?`<div style="font-size:10px;color:var(--muted);min-width:120px">${nota}</div>`:''}
+    </div>`;
+  };
+
+  const sepLinha=`<div style="border-top:1.5px solid var(--line);margin:8px 0 6px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">`;
+
   const bridge=`<div class="section">
     <div class="shead"><h2>Bridge: Lucro → Caixa</h2>
       <span class="legend">Por que o lucro não virou caixa?</span>
     </div>
-    ${buildBridgeBar('(+) Lucro Líquido Final (DRE)',bridgeLucro,'#3b82f6')}
-    ${buildBridgeBar('(+/-) Variação Fornecedores',bridgeFornec,bridgeFornec>=0?'#15803d':'#b91c1c')}
-    ${buildBridgeBar('(+/-) Variação Clientes',bridgeClientes,bridgeClientes>=0?'#15803d':'#b91c1c')}
-    ${buildBridgeBar('(+/-) Variação Estoques',bridgeEstoque,bridgeEstoque>=0?'#15803d':'#b91c1c')}
-    ${buildBridgeBar('(+/-) Variação Financiamentos',bridgeFinanc,bridgeFinanc>=0?'#15803d':'#b91c1c')}
-    <div style="border-top:2px solid var(--line);margin:10px 0 6px"></div>
-    ${buildBridgeBar('(=) Geração de Caixa Estimada',bridgeTotal,'#8b5cf6')}
-    ${buildBridgeBar('(=) Variação de Caixa Real (FC)',caixaReal,caixaReal>=0?'#15803d':'#b91c1c')}
-  </div>`;
+    <div style="font-size:11px;color:var(--muted);background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px">
+      (+) valor positivo = contribui para caixa &nbsp;|&nbsp; (−) valor negativo = consome caixa
+    </div>
 
-  // 3. CICLO FINANCEIRO
-  const recLiq=dre.recLiq_tej||dre.recLiq||1;
-  // Fórmulas corretas do ciclo financeiro
-  const cmvMes     = Math.abs(dre.cmvTotal_tej||0)||recLiq*0.727;
-  const recBrutaMes= dre.recBruta_tej||recLiq;
-  // Compras = CMV + Estoque Final - Estoque Inicial
-  // O BP tem: col5 = estoque atual, col6 = estoque anterior (já lidos como estoques e estoquesAnt)
-  const estFin  = bp.estoques||0;
-  const estIni  = bp.disponibilidades > 0 ? bp.disponibilidades : estFin; // fallback
-  // Usamos as variações do BP diretamente
-  // bp.estoques = estoque final (col5), o estoque inicial está no campo _Ant do BP
-  // Como parseBP lê col6 como _ant, precisamos calcular via campo separado
-  // Por ora: Compras ≈ CMV (diferença de estoque é capturada pelo PMP indiretamente)
-  // A fórmula exata requer o campo estoques do mês anterior — disponível em bp via col6
-  // parseBP lê linha 17 col5=estoques, col6=estoquesAnt → precisamos expor estoquesAnt
-  // Compras = CMV + Estoque Final - Estoque Inicial (fórmula completa)
-  const estIniReal = bp.estoquesAnt||estFin; // estoque do mês anterior via parseBP
-  const comprasMes = cmvMes + estFin - estIniReal;
-  const pme  = estFin/(cmvMes/30);
-  const pmr  = bp.contasReceber/(recBrutaMes/30);
-  const pmp  = bp.fornecedores/((comprasMes>0?comprasMes:cmvMes)/30);
-  const ciclo= pme+pmr-pmp;
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">
+      Camada 1 — Capital de Giro
+    </div>
+    ${bBar('(+) Lucro Líquido Final (DRE)',bridgeLucro,'','ponto de partida')}
+    ${bBar('(+/−) Δ Clientes — ativo caiu = recebeu',bridgeClientes,'',bridgeClientes>=0?'↓ clientes = entrou caixa':'↑ clientes = preso a receber')}
+    ${bBar('(+/−) Δ Fornecedores — passivo caiu = pagou',bridgeFornec,'',bridgeFornec>=0?'↑ fornec = financiou':'↓ fornec = pagou')}
+    ${bBar('(+/−) Δ Estoques — ativo caiu = liberou',bridgeEstoque,'',bridgeEstoque>=0?'↓ estoque = liberou':'↑ estoque = comprou mais')}
+    ${sepLinha}<span>Subtotal C1</span><span style="font-weight:700;color:${c1>=0?'var(--good)':'var(--bad)'}">${fM(c1)}</span></div>
 
-  const cicloCard=`<div class="section">
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px">
+      Camada 2 — Investimentos & Financiamentos
+    </div>
+    ${bBar('(+/−) Δ Imobilizado — subiu = CAPEX',-dImobilizado,'',dImobilizado>0?'↑ imob = investiu (saiu caixa)':'↓ imob = desinvestiu ou depreciou')}
+    ${bBar('(+/−) Δ Financiamentos CP',bridgeFinanc,'',bridgeFinanc>=0?'↑ financ = tomou empréstimo':'↓ financ = pagou parcela')}
+    ${bBar('(+/−) Δ Financiamentos LP',dFinancLP,'',Math.abs(dFinancLP)>500000?'⚠️ possível reclassificação LP→CP':'variação normal')}
+    ${sepLinha}<span>Subtotal C2</span><span style="font-weight:700;color:${c2>=0?'var(--good)':'var(--bad)'}">${fM(c2)}</span></div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px">
+      Camada 3 — Outros Passivos Operacionais
+    </div>
+    ${bBar('(+/−) Δ Salários a Pagar',dSalarios,'','')}
+    ${bBar('(+/−) Δ Obrigações Fiscais',dFiscais,'','')}
+    ${bBar('(+/−) Δ Outras Obrigações',dOutrasObg,'','')}
+    ${sepLinha}<span>Subtotal C3</span><span style="font-weight:700;color:${c3>=0?'var(--good)':'var(--bad)'}">${fM(c3)}</span></div>
+
+    <div style="border-top:2px solid var(--ink);margin:10px 0 6px;display:flex;justify-content:space-between;font-size:12px;font-weight:700">
+      <span>Total Estimado</span><span style="color:${estimadoTotal>=0?'var(--good)':'var(--bad)'}">${fM(estimadoTotal)}</span>
+    </div>
+    ${bBar('(=) Variação de Caixa Real (FC)',caixaReal,'','')}
+    
+    <div style="margin-top:10px;padding:10px;border-radius:8px;background:${Math.abs(residuo)<300000?'#f0fdf4':'#fef9c3'};border:1px solid ${Math.abs(residuo)<300000?'#bbf7d0':'#fde68a'}">
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px">
+        Resíduo não explicado: <span style="color:${Math.abs(residuo)<300000?'var(--good)':'var(--warn)'}">${fM(residuo)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        ${Math.abs(residuo)<100000
+          ? '✅ Bridge fechou com alta precisão.'
+          : Math.abs(residuo)<300000
+          ? '⚠️ Pequena diferença — típica de ajustes contábeis não-caixa (provisões, depreciação).'
+          : '⚠️ Diferença relevante — pode haver reclassificação contábil (ex: LP→CP) ou ajuste de fechamento sem impacto de caixa.'}
+      </div>
+    </div>
+  </div>\`;
+
+    const cicloCard=`<div class="section">
     <div class="shead"><h2>Ciclo Financeiro</h2>
       <span class="legend">Quantos dias o dinheiro fica preso?</span>
     </div>
