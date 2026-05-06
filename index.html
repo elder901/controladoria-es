@@ -111,6 +111,7 @@ tbody tr.rs td.ctot{background:#e4edff}
       <button class="btn active" onclick="setModulo('financeiro',this)">Financeiro</button>
       <button class="btn" onclick="setModulo('dre',this)">DRE</button>
       <button class="btn" onclick="setModulo('bp',this)">Balanço Patrimonial</button>
+      <button class="btn" onclick="setModulo('bal',this)">Balancete</button>
       <button class="btn" onclick="setModulo('intel',this)">Inteligência</button>
       <button class="btn" onclick="setModulo('prev',this)">Previsão</button>
     </div>
@@ -260,6 +261,7 @@ function render(){
   else if(S.modulo==='bp')renderBP();
   else if(S.modulo==='intel')renderIntel();
   else if(S.modulo==='prev')renderPrevisao();
+  else if(S.modulo==='bal')renderBalancete();
   else renderFin();
 }
 function renderFin(){
@@ -2264,6 +2266,311 @@ window.atualizarProjecao=function(){
       <tbody>${rows}</tbody>
     </table></div>`;
 };
+
+// ============================================================
+// MÓDULO BALANCETE
+// ============================================================
+const ARQ_BAL = {
+  tejotao: ['bal0125.Html','bal0225.Html','bal0325.Html','bal0425.Html','bal0525.Html',
+            'bal0625.Html','bal0725.Html','bal0825.Html','bal0925.Html','bal1025.Html',
+            'bal1125.Html','bal1225.Html','bal0126.Html','bal0226.Html','bal0326.Html'],
+};
+
+const UNIDADES_BAL = [
+  {id:'total', label:'Total',        siCol:4,  debCol:6,  credCol:7,  sfCol:8,  orcCol:40},
+  {id:'mg',    label:'Mato Grosso',  siCol:10, debCol:12, credCol:13, sfCol:14, orcCol:43},
+  {id:'mv',    label:'Melo Viana',   siCol:16, debCol:18, credCol:19, sfCol:20, orcCol:46},
+  {id:'am',    label:'Amazonas',     siCol:22, debCol:24, credCol:25, sfCol:26, orcCol:49},
+  {id:'il',    label:'Interlagos',   siCol:28, debCol:30, credCol:31, sfCol:32, orcCol:52},
+  {id:'ind',   label:'Indústria',    siCol:34, debCol:36, credCol:37, sfCol:38, orcCol:55},
+];
+
+function rotBAL(arq){
+  // bal0125.Html → jan/25
+  const m = arq.match(/bal(\d{2})(\d{2})\.Html/i);
+  if(!m) return arq;
+  const meses=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return (meses[parseInt(m[1])]||m[1])+'/'+m[2];
+}
+
+async function loadBAL(arq){
+  const k='bal/'+arq;
+  if(S.cache[k]) return S.cache[k];
+  try{
+    const r=await fetch(`${BASE}/data/balancete/${encodeURIComponent(arq)}`);
+    if(!r.ok) return null;
+    const buf=await r.arrayBuffer();
+    let txt;
+    try{txt=new TextDecoder('utf-8').decode(buf);}catch(e){txt=new TextDecoder('latin-1').decode(buf);}
+    const d=parseBAL(txt,arq);
+    S.cache[k]=d; return d;
+  }catch(e){ return null; }
+}
+
+function parseBAL(html, arq){
+  // Parser de HTML simples via regex para extrair células da tabela
+  const rows=[];
+  const trRe=/<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  const tdRe=/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi;
+  const valRe=/<div[^>]*>([\s\S]*?)<\/div>/i;
+  let trMatch;
+  while((trMatch=trRe.exec(html))!==null){
+    const cells=[];
+    let tdMatch;
+    const tdRe2=/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    while((tdMatch=tdRe2.exec(trMatch[1]))!==null){
+      const v=valRe.exec(tdMatch[0]);
+      cells.push(v?v[1].replace(/<[^>]+>/g,'').trim():'');
+    }
+    if(cells.length>4) rows.push(cells);
+  }
+
+  function pm(t){
+    if(!t||!t.trim()) return 0;
+    try{ return parseFloat(t.replace(/\./g,'').replace(',','.')); }catch(e){ return 0; }
+  }
+
+  // Filtrar linhas de dados (classificação começa com número)
+  const contas=rows.filter(r=>r[0]&&/^\d/.test(r[0])&&r.length>8);
+
+  return {
+    rot: rotBAL(arq), arq,
+    contas: contas.map(r=>({
+      classif: r[0]||'',
+      descricao: r[1]||'',
+      conta: r[2]||'',
+      tipo: r[3]||'',
+      nivel: (r[0]||'').split('.').length,
+      dbcr: r[9]||'',
+      // Valores por unidade
+      total:   {si:pm(r[4]),  deb:pm(r[6]),  cred:pm(r[7]),  sf:pm(r[8]),  orc:pm(r[40])},
+      mg:      {si:pm(r[10]), deb:pm(r[12]), cred:pm(r[13]), sf:pm(r[14]), orc:pm(r[43])},
+      mv:      {si:pm(r[16]), deb:pm(r[18]), cred:pm(r[19]), sf:pm(r[20]), orc:pm(r[46])},
+      am:      {si:pm(r[22]), deb:pm(r[24]), cred:pm(r[25]), sf:pm(r[26]), orc:pm(r[49])},
+      il:      {si:pm(r[28]), deb:pm(r[30]), cred:pm(r[31]), sf:pm(r[32]), orc:pm(r[52])},
+      ind:     {si:pm(r[34]), deb:pm(r[36]), cred:pm(r[37]), sf:pm(r[38]), orc:pm(r[55])},
+    }))
+  };
+}
+
+// Estado do módulo balancete
+let balState = {
+  mes: null, unidade: 'total', nivel: 5, busca: '', expandidos: {}
+};
+
+async function renderBalancete(){
+  document.getElementById('main').innerHTML=`
+    <div class="mtabs">
+      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Consulta do Balancete</button>
+      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Comparativo por Unidade</button>
+    </div>
+    <div id="fp"><div class="loading">Carregando balancete...</div></div>`;
+  if(S.pag===1) renderBalP1();
+  else renderBalP2();
+}
+
+async function renderBalP1(){
+  const fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Carregando balancete...</div>';
+
+  // Carregar todos os arquivos disponíveis
+  const todos=await Promise.all(ARQ_BAL.tejotao.map(a=>loadBAL(a)));
+  const disponiveis=todos.filter(Boolean);
+
+  if(!disponiveis.length){
+    fp.innerHTML=`<div class="errmsg">Nenhum arquivo de balancete encontrado.<br>
+    Crie a pasta <code>data/balancete/</code> no GitHub e suba os arquivos <code>bal0125.Html</code>, etc.</div>`;
+    return;
+  }
+
+  if(!balState.mes) balState.mes=disponiveis[disponiveis.length-1].rot;
+  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
+
+  // Toolbar
+  const mesOpts=disponiveis.map(d=>`<option value="${d.rot}" ${d.rot===balState.mes?'selected':''}>${d.rot}</option>`).join('');
+  const unidOpts=UNIDADES_BAL.map(u=>`<option value="${u.id}" ${u.id===balState.unidade?'selected':''}>${u.label}</option>`).join('');
+
+  fp.innerHTML=`
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+      <div class="tg"><label>Mês</label>
+        <select onchange="balState.mes=this.value;renderBalP1()">${mesOpts}</select></div>
+      <div class="tg"><label>Unidade</label>
+        <select onchange="balState.unidade=this.value;renderBalP1()">${unidOpts}</select></div>
+      <div class="tg"><label>Nível máximo</label>
+        <select onchange="balState.nivel=+this.value;renderBalP1()">
+          ${[1,2,3,4,5].map(n=>`<option value="${n}" ${balState.nivel===n?'selected':''}>${n} — ${['Grupos principais','Subgrupos','Contas sintéticas','Contas analíticas','Contas detalhadas'][n-1]}</option>`).join('')}
+        </select></div>
+      <div class="tg"><label>Buscar conta</label>
+        <input type="text" placeholder="nome ou código..." value="${balState.busca}"
+          style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:200px"
+          oninput="balState.busca=this.value;renderBalContasOnly()"/></div>
+      <div style="align-self:flex-end;font-size:12px;color:var(--muted);padding-bottom:6px">
+        ${bal.contas.length} contas · ${bal.rot}
+      </div>
+    </div>
+
+    <div id="bal-kpis" style="margin-bottom:10px"></div>
+    <div id="bal-tabela"></div>`;
+
+  renderBalKPIs(bal);
+  renderBalContas(bal);
+}
+
+function renderBalKPIs(bal){
+  const u=balState.unidade;
+  const ativo  =bal.contas.find(c=>c.classif==='1');
+  const passivo=bal.contas.find(c=>c.classif==='2');
+  const result =bal.contas.find(c=>c.classif==='3');
+  const pc     =bal.contas.find(c=>c.classif==='2.1');
+  const pl     =bal.contas.find(c=>c.classif==='2.5');
+  const rec    =bal.contas.find(c=>c.classif==='3.1');
+  const cmv    =bal.contas.find(c=>c.classif==='3.2');
+  const desp   =bal.contas.find(c=>c.classif==='3.3');
+
+  const kpis=[
+    {t:'Total do Ativo',    v:ativo?ativo[u].sf:0,   cor:'#3b82f6'},
+    {t:'Passivo Circulante',v:pc?pc[u].sf:0,         cor:'#ef4444'},
+    {t:'Patrimônio Líquido',v:pl?pl[u].sf:0,         cor:'#15803d'},
+    {t:'Receitas do Mês',   v:rec?rec[u].deb+rec[u].cred:0, cor:'#8b5cf6'},
+    {t:'CMV do Mês',        v:cmv?cmv[u].deb:0,      cor:'#f59e0b'},
+    {t:'Desp. Operacionais',v:desp?desp[u].deb:0,    cor:'#06b6d4'},
+  ];
+
+  document.getElementById('bal-kpis').innerHTML=`<div class="cards">
+    ${kpis.map(k=>`<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${k.cor}">
+      <h3>${k.t}</h3>
+      <div class="kval" style="font-size:18px">${fM(k.v)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Unidade: ${UNIDADES_BAL.find(u=>u.id===balState.unidade)?.label}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderBalContasOnly(){
+  const disponiveis=Object.values(S.cache)
+    .filter(d=>d&&d.rot&&d.contas)
+    .filter(d=>ARQ_BAL.tejotao.map(a=>rotBAL(a)).includes(d.rot));
+  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
+  if(bal) renderBalContas(bal);
+}
+
+function renderBalContas(bal){
+  const u=balState.unidade;
+  const busca=balState.busca.toLowerCase();
+  const maxNivel=balState.nivel;
+
+  // Filtrar contas
+  let contas=bal.contas.filter(c=>{
+    if(c.nivel>maxNivel) return false;
+    if(busca && !c.descricao.toLowerCase().includes(busca) && !c.classif.includes(busca) && !c.conta.includes(busca)) return false;
+    return true;
+  });
+
+  // Cor por grupo principal
+  const corGrupo=(c)=>{
+    const g=c.classif.split('.')[0];
+    return {1:'#dbeafe',2:'#fef9c3',3:'#dcfce7',}[g]||'white';
+  };
+
+  const indentPx=(nivel)=>(nivel-1)*16;
+
+  const linhas=contas.map(c=>{
+    const v=c[u];
+    const isSint=c.tipo==='TT';
+    const sf=v.sf; const dbcr=c.dbcr;
+    const cor=sf<0?'var(--bad)':'inherit';
+    const bg=isSint&&c.nivel<=2?corGrupo(c):'white';
+    const fw=isSint?'700':'400';
+    const fs=c.nivel===1?'14px':c.nivel===2?'13px':'12px';
+    const pct=v.si!==0?((v.sf-v.si)/Math.abs(v.si)*100):0;
+
+    return `<tr style="background:${bg}">
+      <td style="padding:6px 10px;font-size:${fs};font-weight:${fw};padding-left:${indentPx(c.nivel)+10}px;min-width:50px">${c.classif}</td>
+      <td style="padding:6px 10px;font-size:${fs};font-weight:${fw};min-width:250px">${c.descricao}</td>
+      <td style="padding:6px 10px;font-size:11px;color:var(--muted);text-align:center">${c.conta}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:${fw}">${fM(v.si)}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#1d4ed8">${fM(v.deb)}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#15803d">${fM(v.cred)}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:700;color:${cor}">${fM(sf)}</td>
+      <td style="padding:6px 10px;font-size:11px;text-align:center;font-weight:700;color:${dbcr==='DB'?'#1d4ed8':'#15803d'}">${dbcr}</td>
+      ${v.orc?`<td style="padding:6px 10px;font-size:11px;text-align:right;color:var(--muted)">${fM(v.orc)}</td>
+      <td style="padding:6px 10px;font-size:11px;text-align:right;color:${sf>=v.orc?'var(--good)':'var(--bad)'}">${v.orc?fPS(sf/v.orc*100,0)+'%':'—'}</td>`:''}
+    </tr>`;
+  }).join('');
+
+  const temOrc=contas.some(c=>c[u].orc>0);
+
+  document.getElementById('bal-tabela').innerHTML=`
+    <div class="section" style="padding:0">
+      <div class="twrap" style="max-height:620px">
+        <table style="width:100%">
+          <thead><tr style="position:sticky;top:0;z-index:3;background:#f8fafc">
+            <th style="padding:8px 10px;text-align:left;font-size:10px;min-width:80px">Classif.</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;min-width:250px">Descrição</th>
+            <th style="padding:8px 10px;text-align:center;font-size:10px">Conta</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px">Saldo Inicial</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;color:#1d4ed8">Débitos</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;color:#15803d">Créditos</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px">Saldo Final</th>
+            <th style="padding:8px 10px;text-align:center;font-size:10px">DB/CR</th>
+            ${temOrc?'<th style="padding:8px 10px;text-align:right;font-size:10px">Orçamento</th><th style="padding:8px 10px;text-align:right;font-size:10px">% Real/Orc</th>':''}
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function renderBalP2(){
+  const fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Carregando...</div>';
+
+  const todos=await Promise.all(ARQ_BAL.tejotao.map(a=>loadBAL(a)));
+  const disponiveis=todos.filter(Boolean);
+  if(!disponiveis.length){ fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>'; return; }
+
+  if(!balState.mes) balState.mes=disponiveis[disponiveis.length-1].rot;
+  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
+  const mesOpts=disponiveis.map(d=>`<option value="${d.rot}" ${d.rot===balState.mes?'selected':''}>${d.rot}</option>`).join('');
+
+  // Contas sintéticas nível 2 e 3 para comparativo
+  const sinteticas=bal.contas.filter(c=>c.nivel<=3&&c.tipo==='TT');
+
+  const cols=UNIDADES_BAL.map(u=>`<th style="text-align:right;padding:8px 10px;font-size:11px">${u.label}</th>`).join('');
+  const linhas=sinteticas.map(c=>{
+    const vals=UNIDADES_BAL.map(u=>{
+      const sf=c[u.id].sf;
+      return `<td style="text-align:right;padding:6px 10px;font-size:12px;font-weight:${c.nivel<=2?'700':'400'}">${fM(sf)}</td>`;
+    }).join('');
+    const bg=c.nivel===1?'#f0f5ff':c.nivel===2?'#f8fafc':'white';
+    const fs=c.nivel===1?'14px':c.nivel===2?'13px':'12px';
+    return `<tr style="background:${bg}">
+      <td style="padding:6px 10px 6px ${(c.nivel-1)*12+10}px;font-size:${fs};font-weight:${c.nivel<=2?700:400}">${c.classif}</td>
+      <td style="padding:6px 10px;font-size:${fs};font-weight:${c.nivel<=2?700:400};min-width:220px">${c.descricao}</td>
+      ${vals}
+    </tr>`;
+  }).join('');
+
+  fp.innerHTML=`
+    <div class="toolbar">
+      <div class="tg"><label>Mês</label>
+        <select onchange="balState.mes=this.value;renderBalP2()">${mesOpts}</select></div>
+    </div>
+    <div class="section" style="padding:0">
+      <div class="shead" style="padding:12px 14px 0"><h2>Comparativo por Unidade — ${bal.rot}</h2></div>
+      <div class="twrap" style="max-height:640px">
+        <table style="width:100%">
+          <thead><tr style="position:sticky;top:0;z-index:3;background:#f8fafc">
+            <th style="text-align:left;padding:8px 10px;font-size:10px">Classif.</th>
+            <th style="text-align:left;padding:8px 10px;font-size:10px;min-width:220px">Descrição</th>
+            ${cols}
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
 // Expõe todas as funções usadas em onclick para o escopo global
 // Necessário para funcionar corretamente no GitHub Pages
 window.setPag=function(p){S.pag=p;render();}
