@@ -1753,7 +1753,7 @@ async function renderIntelP1(){
       <strong>Como ler:</strong> A empresa compra estoque → espera ${pme.toFixed(0)} dias para vender → aguarda ${pmr.toFixed(0)} dias para receber → total de <strong>${(pme+pmr).toFixed(0)} dias</strong> com capital empatado.
       Nesse período, os fornecedores financiam <strong>${pmp.toFixed(0)} dias</strong>. O saldo a financiar é de <strong>${ciclo.toFixed(0)} dias</strong>.
       ${ciclo<0?' Como o ciclo é negativo, os fornecedores estão, na prática, financiando o negócio — situação favorável.'
-               :` Isso representa R$ ${fM(recLiq/30*ciclo)} de capital de giro necessário.`}
+               :` Isso representa R$ ${fM(recBrutaMes/30*ciclo)} de capital de giro necessário.`}
     </div>
   </div>`;
 
