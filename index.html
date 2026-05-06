@@ -1713,7 +1713,17 @@ async function renderIntelP1(){
     </div>
   </div>`;
 
-    const cicloCard=`<div class="section">
+    // Cálculo do ciclo financeiro (necessário para cicloCard)
+  const cmvMes     = Math.abs(dre.cmvTotal_tej||0)||recLiq*0.727;
+  const recBrutaMes= dre.recBruta_tej||recLiq;
+  const estFin     = bp.estoques||0;
+  const comprasMes = cmvMes;
+  const pme  = estFin/(cmvMes/30);
+  const pmr  = bp.contasReceber/(recBrutaMes/30);
+  const pmp  = bp.fornecedores/((comprasMes>0?comprasMes:cmvMes)/30);
+  const ciclo= pme+pmr-pmp;
+
+  const cicloCard=`<div class="section">
     <div class="shead"><h2>Ciclo Financeiro</h2>
       <span class="legend">Quantos dias o dinheiro fica preso?</span>
     </div>
