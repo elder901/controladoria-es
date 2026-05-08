@@ -843,14 +843,16 @@ async function renderDREP1(){
 
   // KPI Cards
   const KPI=[
-    {t:'Receita Operacional Líquida',c:'recLiq',id:'dsp0'},
-    {t:'Margem de Venda',c:'margemVenda',id:'dsp1'},
-    {t:'Margem de Contribuição',c:'margemContrib',id:'dsp2'},
-    {t:'EBITDA',c:'ebitda',id:'dsp3'},
-    {t:'EBIT',c:'ebit',id:'dsp4'},
-    {t:'Resultado Líquido',c:'resLiquido',id:'dsp5'},
-    {t:'Lucro Líquido Final',c:'resLucroLiq',id:'dsp6'},
-    {t:'Após Empréstimos',c:'resAposEmp',id:'dsp7'},
+    {t:'Receita Bruta Efetiva (Produtos)',c:'recBrutaEfetiva',id:'dsp0'},
+    {t:'Impostos sobre Vendas',c:'impostos',id:'dsp1'},
+    {t:'Receita Operacional Líquida',c:'recLiq',id:'dsp2'},
+    {t:'Margem de Venda',c:'margemVenda',id:'dsp3'},
+    {t:'Margem de Contribuição',c:'margemContrib',id:'dsp4'},
+    {t:'Despesas Operacionais',c:'despOperacionais',id:'dsp5'},
+    {t:'EBITDA',c:'ebitda',id:'dsp6'},
+    {t:'Resultado Líquido',c:'resLiquido',id:'dsp7'},
+    {t:'Lucro Líquido Final',c:'resLucroLiq',id:'dsp8'},
+    {t:'Após Empréstimos',c:'resAposEmp',id:'dsp9'},
   ];
 
   // Toolbar
@@ -979,7 +981,7 @@ async function renderDREP1(){
     const el=document.getElementById(it.id);if(!el)return;
     const vals=dados.map(d=>d[it.c+suf]||0);
     const iS=dados.findIndex(d=>d.rot===sl[0].rot),iE=dados.findIndex(d=>d.rot===sl[sl.length-1].rot);
-    const cores=['#3b82f6','#10b981','#8b5cf6','#f59e0b','#6366f1','#06b6d4','#f59e0b','#84cc16'];
+    const cores=['#3b82f6','#ef4444','#10b981','#8b5cf6','#f59e0b','#f97316','#06b6d4','#6366f1','#84cc16','#ec4899'];
     const W=el.clientWidth||200,H=42,min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
     const px=(v,j)=>`${((j/(vals.length-1))*(W-4)+2).toFixed(1)},${(H-2-((v-min)/range)*(H-4)).toFixed(1)}`;
     const ptsFull=vals.map((v,j)=>px(v,j)).join(' ');
