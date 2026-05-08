@@ -658,18 +658,17 @@ function calcP2(dados,aS,aE,bS,bE){
     <p><strong>Resultado final:</strong> Lucro líquido <strong>${fM(B.lucroLiq)}</strong> no B contra <strong>${fM(A.lucroLiq)}</strong> no A — <span class="${c(cl.d)}">${fM(cl.d)} (${fP(cl.p)})</span>.</p>
     <p><strong>Média mensal de caixa:</strong><br>A = <strong>${fM(A.varCaixa/A.months)}</strong> &nbsp;·&nbsp; B = <strong>${fM(B.varCaixa/B.months)}</strong></p>`;
   const metAtual=p2view==='full'?MET_FULL:MET_MAIN;
-  const recLiqA=A['vlc']||1; const recLiqB=B['vlc']||1;
+  const recLiqA=A['recLiq']||A['vlc']||1;
+  const recLiqB=B['recLiq']||B['vlc']||1;
   const linhas=metAtual.map(m=>{
     const{d,p}=df(A[m.c]||0,B[m.c]||0);
     const avA=recLiqA?(A[m.c]||0)/recLiqA*100:0;
     const avB=recLiqB?(B[m.c]||0)/recLiqB*100:0;
-    const dpp=avB-avA; // variação em pontos percentuais
+    const dpp=avB-avA;
     return `<tr>
       <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${m.l}</td>
-      <td class="cv">${fM(A[m.c]||0)}</td>
-      <td class="cv" style="color:var(--muted);font-size:11px">${fPS(avA,1)}%</td>
-      <td class="cv">${fM(B[m.c]||0)}</td>
-      <td class="cv" style="color:var(--muted);font-size:11px">${fPS(avB,1)}%</td>
+      <td><div class="cv">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
+      <td><div class="cv">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
       <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
       <td class="cv ${dcls(d)}">${fM(d)}</td>
       <td class="cv ${dcls(d)}">${fP(p)}</td>
@@ -697,9 +696,11 @@ function calcP2(dados,aS,aE,bS,bE){
       </div></div>
       <div class="twrap"><table><thead><tr>
         <th style="min-width:200px;text-align:left">Linha</th>
-        <th>Período A</th><th>A.V.%</th>
-        <th>Período B</th><th>A.V.%</th>
-        <th>Δ p.p.</th><th>Diferença</th><th>Var %</th>
+        <th>Período A</th>
+        <th>Período B</th>
+        <th>Δ p.p.</th>
+        <th>Diferença</th>
+        <th>Var %</th>
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
@@ -1105,9 +1106,11 @@ function calcDREP2(dados,aS,aE,bS,bE){
     <div class="section"><div class="shead"><h2>Tabela comparativa</h2></div>
       <div class="twrap"><table><thead><tr>
         <th style="min-width:200px;text-align:left">Linha</th>
-        <th>Período A</th><th>A.V.%</th>
-        <th>Período B</th><th>A.V.%</th>
-        <th>Δ p.p.</th><th>Diferença</th><th>Var %</th>
+        <th>Período A</th>
+        <th>Período B</th>
+        <th>Δ p.p.</th>
+        <th>Diferença</th>
+        <th>Var %</th>
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
