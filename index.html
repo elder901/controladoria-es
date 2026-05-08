@@ -672,6 +672,8 @@ function calcP2(dados,aS,aE,bS,bE){
       <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
       <td class="cv ${dcls(d)}">${fM(d)}</td>
       <td class="cv ${dcls(d)}">${fP(p)}</td>
+      <td class="cv">${fM((A[m.c]||0)/A.months)}</td>
+      <td class="cv">${fM((B[m.c]||0)/B.months)}</td>
     </tr>`;
   }).join('');
   body.innerHTML=`
@@ -1039,31 +1041,37 @@ function calcDREP2(dados,aS,aE,bS,bE){
   if(!slA.length||!slB.length){body.innerHTML='<div class="errmsg">Selecione períodos válidos.</div>';return;}
   const suf=getCampoEmp();
   const smP=(sl,c)=>sl.reduce((s,d)=>s+(d[c+suf]||0),0);
-  const KPI=['recLiq','margemVenda','margemContrib','despOperacionais','ebitda','ebit','resLiquido','resLucroLiq','resAposEmp','cmvTotal'];
-  const KPIlabels=['Receita Op. Líquida','Margem de Venda','Margem Contribuição','Desp. Operacionais','EBITDA','EBIT','Resultado Líquido','Lucro Líquido Final','Após Empréstimos','CMV Total'];
   const A={},B={};
-  KPI.forEach(k=>{A[k]=smP(slA,k);B[k]=smP(slB,k);});
+  const CAMPOS=['recBruta','abatimentos','recBrutaEfetiva','impostos','devolucoes',
+    'recLiq','cmvTotal','cmv','cmvDevol','margemVenda',
+    'despVariaveis','despVendas','despFinanceiras','perdasMerc','faltaMerc','sobraMerc','perdasTotal',
+    'margemContrib','despFixas',
+    'despPessoalLoja','despPessoalAdm','despTrib','despUtilidades','despManutencao',
+    'despTI','despHonorarios','despMaterial','despMarketing','despVeiculos',
+    'alugueis','despGerais','outrasReceitas','bonificacao','despOperacionais',
+    'ebitda','depreciacao','ebit','resFinanceiro','resPeriodo','irpj','resLiquido',
+    'despNaoOp','proLaboreEmp','alugueisHolding','resLucroLiq','emprestimos','resAposEmp'];
+  CAMPOS.forEach(k=>{A[k]=smP(slA,k);B[k]=smP(slB,k);});
   A.months=slA.length;B.months=slB.length;
   const df=(a,b)=>{const d=b-a,p=a?((d/Math.abs(a))*100):0;return{d,p};};
-  const c=v=>v>=0?'good':'bad';
-  const maxV=Math.max(...KPI.map(k=>Math.max(Math.abs(A[k]||0),Math.abs(B[k]||0))),1);
 
-  const recLiqA_p2=A['recLiq']||1;
-  const recLiqB_p2=B['recLiq']||1;
-  const cards=KPI.slice(0,8).map((k,i)=>{
+  // KPI cards — principais indicadores
+  const KPI=['recLiq','margemVenda','margemContrib','despOperacionais','ebitda','ebit','resLiquido','resLucroLiq'];
+  const KPIlabels=['Receita Op. Líquida','Margem de Venda','Margem Contribuição','Desp. Operacionais','EBITDA','EBIT','Resultado Líquido','Lucro Líquido Final'];
+
+  const recLiqA_dre=A['recLiq']||1;
+  const recLiqB_dre=B['recLiq']||1;
+
+  const cards=KPI.map((k,i)=>{
     const{d,p}=df(A[k]||0,B[k]||0);const cls=d>=0?'good':'bad';
-    const avA=recLiqA_p2?(A[k]||0)/recLiqA_p2*100:0;
-    const avB=recLiqB_p2?(B[k]||0)/recLiqB_p2*100:0;
+    const avA=recLiqA_dre?(A[k]||0)/recLiqA_dre*100:0;
+    const avB=recLiqB_dre?(B[k]||0)/recLiqB_dre*100:0;
     const dpp=avB-avA;
     return `<div class="kcard" style="min-height:0;padding:12px">
       <h3>${KPIlabels[i]}</h3>
       <div class="kval" style="font-size:18px;${B[k]<0?'color:var(--bad)':''}">${fM(B[k]||0)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px">
-        A.V. período B: <strong>${fPS(avB,1)}%</strong>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">
-        A: ${fM(A[k]||0)} <span style="font-size:10px">(${fPS(avA,1)}%)</span>
-      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">A.V. período B: <strong>${fPS(avB,1)}%</strong></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">A: ${fM(A[k]||0)} (${fPS(avA,1)}%)</div>
       <div style="font-size:11px;margin-top:2px">
         <span class="${cls}">${fM(d)} · ${fP(p)}</span>
         ${Math.abs(dpp)>0.1?`<span class="${dcls(-dpp)}" style="margin-left:6px;font-size:10px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</span>`:''}
@@ -1071,36 +1079,106 @@ function calcDREP2(dados,aS,aE,bS,bE){
     </div>`;
   }).join('');
 
-  const barras=KPI.slice(0,8).map((k,i)=>{
-    const wa=(Math.abs(A[k]||0)/maxV*100).toFixed(1),wb=(Math.abs(B[k]||0)/maxV*100).toFixed(1);
-    const{d,p}=df(A[k]||0,B[k]||0);
-    return `<div class="bar-row"><div>${KPIlabels[i]}</div><div class="bar-track"><div class="bar-a" style="width:${wa}%"></div><div class="bar-b" style="width:${wb}%"></div></div><div class="${dcls(d)}">${fP(p)}</div></div>`;
-  }).join('');
-
+  // Leitura executiva
   const cv=df(A.recLiq,B.recLiq),ce=df(A.ebitda,B.ebitda),cl=df(A.resLiquido,B.resLiquido);
+  const c=v=>v>=0?'good':'bad';
   const txt=`
     <p><strong>Receita:</strong> Receita operacional líquida de <strong>${fM(B.recLiq)}</strong> no B contra <strong>${fM(A.recLiq)}</strong> no A — <span class="${c(cv.d)}">${fM(cv.d)} (${fP(cv.p)})</span>.</p>
     <p><strong>EBITDA:</strong> De <strong>${fM(A.ebitda)}</strong> para <strong>${fM(B.ebitda)}</strong> — <span class="${c(ce.d)}">${fM(ce.d)} (${fP(ce.p)})</span>.</p>
     <p><strong>Resultado Líquido:</strong> De <strong>${fM(A.resLiquido)}</strong> para <strong>${fM(B.resLiquido)}</strong> — <span class="${c(cl.d)}">${fM(cl.d)} (${fP(cl.p)})</span>.</p>
     <p><strong>Média mensal EBITDA:</strong><br>A = <strong>${fM(A.ebitda/A.months)}</strong> &nbsp;·&nbsp; B = <strong>${fM(B.ebitda/B.months)}</strong></p>`;
 
-  // A.V.% sobre Receita Líquida — igual à página 1
-  const recLiqA_dre=A['recLiq']||1;
-  const recLiqB_dre=B['recLiq']||1;
-  const linhas=KPI.map((k,i)=>{
-    const{d,p}=df(A[k]||0,B[k]||0);
-    const avA=recLiqA_dre?(A[k]||0)/recLiqA_dre*100:0;
-    const avB=recLiqB_dre?(B[k]||0)/recLiqB_dre*100:0;
+  // Linhas da DRE — na ordem do CSV
+  const EST_DRE_P2_MAIN=[
+    {l:'Receita Bruta Operacional',c:'recBruta'},
+    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
+    {l:'( - ) Impostos sobre Vendas',c:'impostos'},
+    {l:'( - ) Devoluções de Venda',c:'devolucoes'},
+    {l:'Receita Operacional Líquida',c:'recLiq',s:true},
+    {l:'( - ) CMV Total',c:'cmvTotal'},
+    {l:'Margem de Venda',c:'margemVenda',s:true},
+    {l:'( - ) Despesas Variáveis',c:'despVariaveis'},
+    {l:'Margem de Contribuição',c:'margemContrib',s:true},
+    {l:'( - ) Despesas Fixas',c:'despFixas'},
+    {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
+    {l:'EBITDA',c:'ebitda',s:true},
+    {l:'( - ) Depreciação/Amortização',c:'depreciacao'},
+    {l:'EBIT',c:'ebit',s:true},
+    {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
+    {l:'Resultado Líquido',c:'resLiquido',s:true},
+    {l:'( - ) Despesas Não Operacionais',c:'despNaoOp'},
+    {l:'( - ) Pró-Labore',c:'proLaboreEmp'},
+    {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
+    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
+    {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
+  ];
+
+  const EST_DRE_P2_FULL=[
+    {l:'Receita Bruta Operacional',c:'recBruta'},
+    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
+    {l:'( - ) Impostos sobre Vendas',c:'impostos'},
+    {l:'( - ) Devoluções de Venda',c:'devolucoes'},
+    {l:'Receita Operacional Líquida',c:'recLiq',s:true},
+    {l:'( - ) CMV Total',c:'cmvTotal'},
+    {l:'( - ) CMV Produtos',c:'cmv'},
+    {l:'( - ) CMV Devoluções',c:'cmvDevol'},
+    {l:'Margem de Venda',c:'margemVenda',s:true},
+    {l:'Despesas Variáveis Total',c:'despVariaveis'},
+    {l:'( - ) Desp. c/ Vendas',c:'despVendas'},
+    {l:'( - ) Desp. Financeiras Vendas',c:'despFinanceiras'},
+    {l:'( - ) Perdas de Mercadorias',c:'perdasMerc'},
+    {l:'( - ) Falta de Mercadorias',c:'faltaMerc'},
+    {l:'( + ) Sobra de Mercadorias',c:'sobraMerc'},
+    {l:'( - ) Perdas Total',c:'perdasTotal'},
+    {l:'Margem de Contribuição',c:'margemContrib',s:true},
+    {l:'Despesas Fixas Total',c:'despFixas'},
+    {l:'( - ) Desp. Pessoal Lojas',c:'despPessoalLoja'},
+    {l:'( - ) Desp. Pessoal Adm',c:'despPessoalAdm'},
+    {l:'( - ) Desp. Tributárias',c:'despTrib'},
+    {l:'( - ) Utilidades',c:'despUtilidades'},
+    {l:'( - ) Manutenção',c:'despManutencao'},
+    {l:'( - ) Informática',c:'despTI'},
+    {l:'( - ) Honorários Terceiros',c:'despHonorarios'},
+    {l:'( - ) Material Expediente',c:'despMaterial'},
+    {l:'( - ) Marketing',c:'despMarketing'},
+    {l:'( - ) Veículos',c:'despVeiculos'},
+    {l:'( - ) Aluguéis',c:'alugueis'},
+    {l:'( - ) Despesas Gerais',c:'despGerais'},
+    {l:'( + ) Outras Receitas',c:'outrasReceitas'},
+    {l:'( + ) Bonificações',c:'bonificacao'},
+    {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
+    {l:'EBITDA',c:'ebitda',s:true},
+    {l:'( - ) Depreciação/Amortização',c:'depreciacao'},
+    {l:'EBIT',c:'ebit',s:true},
+    {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
+    {l:'Resultado do Período',c:'resPeriodo',s:true},
+    {l:'( - ) IRPJ / CSLL',c:'irpj'},
+    {l:'Resultado Líquido',c:'resLiquido',s:true},
+    {l:'( - ) Despesas Não Operacionais',c:'despNaoOp'},
+    {l:'( - ) Pró-Labore',c:'proLaboreEmp'},
+    {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
+    {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
+    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
+    {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
+  ];
+
+  let dreP2view=window.dreP2view||'main';
+  const metAtual=dreP2view==='full'?EST_DRE_P2_FULL:EST_DRE_P2_MAIN;
+
+  const linhas=metAtual.map(m=>{
+    const{d,p}=df(A[m.c]||0,B[m.c]||0);
+    const avA=recLiqA_dre?(A[m.c]||0)/recLiqA_dre*100:0;
+    const avB=recLiqB_dre?(B[m.c]||0)/recLiqB_dre*100:0;
     const dpp=avB-avA;
-    return `<tr>
-      <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${KPIlabels[i]}</td>
-      <td><div class="cv">${fM(A[k]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
-      <td><div class="cv">${fM(B[k]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
+    return `<tr class="${m.s?'rs':''}">
+      <td style="font-size:12px;font-weight:${m.s?700:400};text-align:left;min-width:200px">${m.l}</td>
+      <td><div class="cv ${(A[m.c]||0)<0&&m.s?'bad':''}">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
+      <td><div class="cv ${(B[m.c]||0)<0&&m.s?'bad':''}">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
       <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
       <td class="cv ${dcls(d)}">${fM(d)}</td>
       <td class="cv ${dcls(d)}">${fP(p)}</td>
-      <td class="cv">${fM((A[k]||0)/A.months)}</td>
-      <td class="cv">${fM((B[k]||0)/B.months)}</td>
+      <td class="cv">${fM((A[m.c]||0)/A.months)}</td>
+      <td class="cv">${fM((B[m.c]||0)/B.months)}</td>
     </tr>`;
   }).join('');
 
@@ -1114,23 +1192,24 @@ function calcDREP2(dados,aS,aE,bS,bE){
         <p style="font-size:13px"><strong>Média mensal EBITDA:</strong><br>A = <strong>${fM(A.ebitda/A.months)}</strong><br>B = <strong>${fM(B.ebitda/B.months)}</strong></p>
       </div>
     </div>
-    <div class="section"><div class="shead"><h2>Comparação por linha da DRE</h2></div>
-      <div class="bar-leg"><span><i style="background:rgba(29,78,216,.75)"></i>Período A</span><span><i style="background:rgba(15,118,110,.65)"></i>Período B</span></div>
-      <div style="margin-top:12px">${barras}</div>
-    </div>
-    <div class="section"><div class="shead"><h2>Tabela comparativa</h2></div>
+    <div class="section"><div class="shead"><h2>Comparativo DRE Econômica</h2>
+      <div style="display:flex;gap:6px">
+        <button class="qbtn ${dreP2view==='main'?'active':''}" onclick="window.dreP2view='main';calcDREP2wrap()">Principais linhas</button>
+        <button class="qbtn ${dreP2view==='full'?'active':''}" onclick="window.dreP2view='full';calcDREP2wrap()">DRE completa</button>
+      </div></div>
       <div class="twrap"><table><thead><tr>
-        <th style="min-width:200px;text-align:left">Linha</th>
-        <th>Período A</th>
-        <th>Período B</th>
-        <th>Δ p.p.</th>
-        <th>Diferença</th>
-        <th>Var %</th>
-        <th>Média Mensal A</th>
-        <th>Média Mensal B</th>
+        <th style="min-width:200px;text-align:left">Linha DRE</th>
+        <th>Período A</th><th>Período B</th>
+        <th>Δ p.p.</th><th>Diferença</th><th>Var %</th>
+        <th>Média Mensal A</th><th>Média Mensal B</th>
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
+
+window.calcDREP2wrap=async function(){
+  const dados=await getDadosDRE();
+  calcDREP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
+};
 
 // ============================================================
 // MÓDULO BALANÇO PATRIMONIAL
