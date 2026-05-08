@@ -701,6 +701,8 @@ function calcP2(dados,aS,aE,bS,bE){
         <th>Δ p.p.</th>
         <th>Diferença</th>
         <th>Var %</th>
+        <th>Média Mensal A</th>
+        <th>Média Mensal B</th>
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
@@ -1082,12 +1084,25 @@ function calcDREP2(dados,aS,aE,bS,bE){
     <p><strong>Resultado Líquido:</strong> De <strong>${fM(A.resLiquido)}</strong> para <strong>${fM(B.resLiquido)}</strong> — <span class="${c(cl.d)}">${fM(cl.d)} (${fP(cl.p)})</span>.</p>
     <p><strong>Média mensal EBITDA:</strong><br>A = <strong>${fM(A.ebitda/A.months)}</strong> &nbsp;·&nbsp; B = <strong>${fM(B.ebitda/B.months)}</strong></p>`;
 
-  const linhas=KPI.map((k,i)=>{const{d,p}=df(A[k]||0,B[k]||0);return `<tr>
-    <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${KPIlabels[i]}</td>
-    <td class="cv">${fM(A[k]||0)}</td><td class="cv">${fM(B[k]||0)}</td>
-    <td class="cv ${dcls(d)}">${fM(d)}</td><td class="cv ${dcls(d)}">${fP(p)}</td>
-    <td class="cv">${fM((A[k]||0)/A.months)}</td><td class="cv">${fM((B[k]||0)/B.months)}</td>
-  </tr>`;}).join('');
+  // A.V.% sobre Receita Líquida — igual à página 1
+  const recLiqA_dre=A['recLiq']||1;
+  const recLiqB_dre=B['recLiq']||1;
+  const linhas=KPI.map((k,i)=>{
+    const{d,p}=df(A[k]||0,B[k]||0);
+    const avA=recLiqA_dre?(A[k]||0)/recLiqA_dre*100:0;
+    const avB=recLiqB_dre?(B[k]||0)/recLiqB_dre*100:0;
+    const dpp=avB-avA;
+    return `<tr>
+      <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${KPIlabels[i]}</td>
+      <td><div class="cv">${fM(A[k]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
+      <td><div class="cv">${fM(B[k]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
+      <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
+      <td class="cv ${dcls(d)}">${fM(d)}</td>
+      <td class="cv ${dcls(d)}">${fP(p)}</td>
+      <td class="cv">${fM((A[k]||0)/A.months)}</td>
+      <td class="cv">${fM((B[k]||0)/B.months)}</td>
+    </tr>`;
+  }).join('');
 
   body.innerHTML=`
     <div class="cards" style="margin-top:14px">${cards}</div>
@@ -1111,6 +1126,8 @@ function calcDREP2(dados,aS,aE,bS,bE){
         <th>Δ p.p.</th>
         <th>Diferença</th>
         <th>Var %</th>
+        <th>Média Mensal A</th>
+        <th>Média Mensal B</th>
       </tr></thead><tbody>${linhas}</tbody></table></div>
     </div>`;
 }
