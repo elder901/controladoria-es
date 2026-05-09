@@ -1974,14 +1974,16 @@ async function renderIntelP1(){
     {t:'Variação Contas a Receber (BP)',  v:varClientes,  fmt:'m', av:varClientes/recLiqRef*100,  cor:'#06b6d4'},
     {t:'CAPEX — Imobilizado (FC)',        v:-capex,       fmt:'m', av:capex/recLiqRef*100,        cor:'#ef4444'},
   ].map(it=>{
+    const corVal=it.v<0?'var(--bad)':'var(--ink)';
+    const empLabel=intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado';
     return `<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${it.cor}">
       <h3>${it.t}</h3>
-      <div class="kval" style="font-size:18px;color:${it.v<0?'var(--bad)':'var(--ink)'}">${fM(it.v)}</div>
+      <div class="kval" style="font-size:18px;color:${corVal}">${fM(it.v)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">
         A.V.: <strong>${fPS(Math.abs(it.av),1)}%</strong> da receita líquida
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">
-        ${mes.rot} · ${intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado'}
+        ${mes.rot} · ${empLabel}
       </div>
     </div>`;
   }).join('');
