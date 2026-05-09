@@ -1669,14 +1669,24 @@ async function renderIntelP1(){
 
   // Seletor de mês
   const opts=dados.map(d=>`<option value="${d.rot}" ${d.rot===mes.rot?'selected':''}>${d.rot}</option>`).join('');
+  // Estado do filtro de empresa do módulo Inteligência
+  if(!window.intelEmp) window.intelEmp='tejotao';
+
   const toolbar=`<div class="toolbar">
     <div class="tg"><label>Mês de análise</label>
       <select onchange="S.ini=this.value;renderIntelP1()">${opts}</select>
     </div>
+    <div class="tg"><label>Empresa</label>
+      <div class="btngrp">
+        <button class="btn ${window.intelEmp==='tejotao'?'active':''}" onclick="window.intelEmp='tejotao';renderIntelP1()">Tejotão</button>
+        <button class="btn ${window.intelEmp==='sena'?'active':''}" onclick="window.intelEmp='sena';renderIntelP1()">Sena</button>
+        <button class="btn ${window.intelEmp==='consolidado'?'active':''}" onclick="window.intelEmp='consolidado';renderIntelP1()">Consolidado</button>
+      </div>
+    </div>
     <div style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:6px">
       Cruzando: <strong>FC + DRE + BP</strong> · ${mes.rot}
     </div>
-  </div>`;
+  </div>\`;
 
   // 1. DESTINO DO LUCRO
   const lucro=dre.resLucroLiq_tej||0;
@@ -1916,7 +1926,75 @@ async function renderIntelP1(){
     </div>
   </div>`;
 
-  fp.innerHTML=toolbar+destinoLucro+bridge+cicloCard+indicadores;
+  // Dados por empresa para os cards executivos
+  // Tejotão = FC operacional, Sena = FC holding, Consolidado = soma
+  const intelEmp = window.intelEmp||'tejotao';
+  const suf_dre = intelEmp==='tejotao'?'_tej':intelEmp==='sena'?'_sena':'_emp';
+
+  // Lucro líquido DRE econômica
+  const lucroLiqDRE = dre['resLucroLiq'+suf_dre]||dre.resLucroLiq_tej||0;
+
+  // Resultado de caixa (FC)
+  let resultCaixa = fc.varCaixa||0;
+  if(intelEmp==='sena'){
+    // Buscar holding do mesmo mês
+    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
+    resultCaixa = hdMes?hdMes.varCaixa||0:0;
+  } else if(intelEmp==='consolidado'){
+    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
+    resultCaixa = (fc.varCaixa||0) + (hdMes?hdMes.varCaixa||0:0);
+  }
+
+  // Pagamento fornecedores (linha 14 FC = compras)
+  let pagFornec = fc.compras||0;
+  if(intelEmp==='sena'){
+    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
+    pagFornec = hdMes?hdMes.compras||0:0;
+  } else if(intelEmp==='consolidado'){
+    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
+    pagFornec = (fc.compras||0) + (hdMes?hdMes.compras||0:0);
+  }
+
+  // Variação do estoque e contas a receber (BP col5-col6)
+  const varEstoque  = bp.estoques    - (bp.estoquesAnt   ||bp.estoques);
+  const varClientes = bp.contasReceber - (bp.contasReceberAnt||bp.contasReceber);
+
+  // CAPEX (imobilizado FC linha 48)
+  const capex = fc.imobilizado||0;
+
+  // Referência para A.V.% — receita líquida DRE
+  const recLiqRef = dre['recLiq'+suf_dre]||dre.recLiq_tej||1;
+
+  // Cards executivos
+  const cardsExec=[
+    {t:'Lucro Líquido (DRE Econômica)', v:lucroLiqDRE,  fmt:'m', av:lucroLiqDRE/recLiqRef*100, cor:'#3b82f6'},
+    {t:'Resultado de Caixa (FC)',        v:resultCaixa,  fmt:'m', av:resultCaixa/recLiqRef*100,  cor:'#10b981'},
+    {t:'Pagamento Fornecedores (FC)',     v:-pagFornec,   fmt:'m', av:pagFornec/recLiqRef*100,    cor:'#f59e0b'},
+    {t:'Variação Estoques (BP)',          v:varEstoque,   fmt:'m', av:varEstoque/recLiqRef*100,   cor:'#8b5cf6'},
+    {t:'Variação Contas a Receber (BP)',  v:varClientes,  fmt:'m', av:varClientes/recLiqRef*100,  cor:'#06b6d4'},
+    {t:'CAPEX — Imobilizado (FC)',        v:-capex,       fmt:'m', av:capex/recLiqRef*100,        cor:'#ef4444'},
+  ].map(it=>{
+    return `<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${it.cor}">
+      <h3>${it.t}</h3>
+      <div class="kval" style="font-size:18px;color:${it.v<0?'var(--bad)':'var(--ink)'}">${fM(it.v)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        A.V.: <strong>${fPS(Math.abs(it.av),1)}%</strong> da receita líquida
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">
+        ${mes.rot} · ${intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado'}
+      </div>
+    </div>`;
+  }).join('');
+
+  const secaoCards=`<div class="section" style="margin-bottom:10px">
+    <div class="shead">
+      <h2>Resumo Executivo</h2>
+      <span class="legend">${mes.rot} · ${intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado'}</span>
+    </div>
+    <div class="cards">${cardsExec}</div>
+  </div>`;
+
+  fp.innerHTML=toolbar+secaoCards+destinoLucro+bridge+cicloCard+indicadores;
 }
 
 async function renderIntelP2(){
