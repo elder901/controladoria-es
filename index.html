@@ -1686,7 +1686,7 @@ async function renderIntelP1(){
     <div style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:6px">
       Cruzando: <strong>FC + DRE + BP</strong> · ${mes.rot}
     </div>
-  </div>`;
+  </div>\`;
 
   // 1. DESTINO DO LUCRO
   const lucro=dre.resLucroLiq_tej||0;
@@ -1927,40 +1927,44 @@ async function renderIntelP1(){
   </div>`;
 
   // Dados por empresa para os cards executivos
-  // Tejotão = FC operacional, Sena = FC holding, Consolidado = soma
   const intelEmp = window.intelEmp||'tejotao';
   const suf_dre = intelEmp==='tejotao'?'_tej':intelEmp==='sena'?'_sena':'_emp';
 
-  // Lucro líquido DRE econômica
-  const lucroLiqDRE = dre['resLucroLiq'+suf_dre]||dre.resLucroLiq_tej||0;
+  // Carregar FC da holding uma vez para usar em todos os campos
+  const hdTodos = await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
+  const hdMes = hdTodos.filter(Boolean).find(d=>d.rot===mes.rot)||null;
+
+  // FC correto por empresa
+  const fcTej = fc;   // FC operacional = Tejotão
+  const fcSena = hdMes; // FC holding = Sena
+  const fcAtivo = intelEmp==='tejotao' ? fcTej
+                : intelEmp==='sena'    ? fcSena
+                : null; // consolidado = soma dos dois
+
+  // Lucro líquido DRE econômica — já tem colunas separadas no CSV
+  const lucroLiqDRE = dre['resLucroLiq'+suf_dre]||0;
 
   // Resultado de caixa (FC)
-  let resultCaixa = fc.varCaixa||0;
-  if(intelEmp==='sena'){
-    // Buscar holding do mesmo mês
-    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
-    resultCaixa = hdMes?hdMes.varCaixa||0:0;
-  } else if(intelEmp==='consolidado'){
-    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
-    resultCaixa = (fc.varCaixa||0) + (hdMes?hdMes.varCaixa||0:0);
-  }
+  let resultCaixa = 0;
+  if(intelEmp==='tejotao')       resultCaixa = fcTej.varCaixa||0;
+  else if(intelEmp==='sena')     resultCaixa = fcSena?fcSena.varCaixa||0:0;
+  else                           resultCaixa = (fcTej.varCaixa||0)+(fcSena?fcSena.varCaixa||0:0);
 
   // Pagamento fornecedores (linha 14 FC = compras)
-  let pagFornec = fc.compras||0;
-  if(intelEmp==='sena'){
-    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
-    pagFornec = hdMes?hdMes.compras||0:0;
-  } else if(intelEmp==='consolidado'){
-    const hdMes = (await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)))).filter(Boolean).find(d=>d.rot===mes.rot);
-    pagFornec = (fc.compras||0) + (hdMes?hdMes.compras||0:0);
-  }
-
-  // Variação do estoque e contas a receber (BP col5-col6)
-  const varEstoque  = bp.estoques    - (bp.estoquesAnt   ||bp.estoques);
-  const varClientes = bp.contasReceber - (bp.contasReceberAnt||bp.contasReceber);
+  let pagFornec = 0;
+  if(intelEmp==='tejotao')       pagFornec = fcTej.compras||0;
+  else if(intelEmp==='sena')     pagFornec = fcSena?fcSena.compras||0:0;
+  else                           pagFornec = (fcTej.compras||0)+(fcSena?fcSena.compras||0:0);
 
   // CAPEX (imobilizado FC linha 48)
-  const capex = fc.imobilizado||0;
+  let capex = 0;
+  if(intelEmp==='tejotao')       capex = fcTej.imobilizado||0;
+  else if(intelEmp==='sena')     capex = fcSena?fcSena.imobilizado||0:0;
+  else                           capex = (fcTej.imobilizado||0)+(fcSena?fcSena.imobilizado||0:0);
+
+  // Variação do estoque e contas a receber (BP) — Tejotão sempre por ora
+  const varEstoque  = bp.estoques     - (bp.estoquesAnt    ||bp.estoques);
+  const varClientes = bp.contasReceber- (bp.contasReceberAnt||bp.contasReceber);
 
   // Referência para A.V.% — receita líquida DRE
   const recLiqRef = dre['recLiq'+suf_dre]||dre.recLiq_tej||1;
