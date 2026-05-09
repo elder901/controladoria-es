@@ -1935,6 +1935,7 @@ async function renderIntelP1(){
   const hdMes = hdTodos.filter(Boolean).find(d=>d.rot===mes.rot)||null;
 
   // FC correto por empresa
+  console.log('Intel debug:', {intelEmp, mesRot:mes.rot, hdMes:hdMes?hdMes.rot:'null', hdMesImob:hdMes?hdMes.imobilizado:'null'});
   const fcTej = fc;   // FC operacional = Tejotão
   const fcSena = hdMes; // FC holding = Sena
   const fcAtivo = intelEmp==='tejotao' ? fcTej
