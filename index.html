@@ -1071,7 +1071,7 @@ function calcDREP2(dados,aS,aE,bS,bE){
     const dpp=avB-avA;
     return `<div class="kcard" style="min-height:0;padding:12px">
       <h3>${KPIlabels[i]}</h3>
-      <div class="kval" style="font-size:18px;${B[k]<0?'color:var(--bad)':''}">${fM(B[k]||0)}</div>
+      <div class="kval" style="font-size:18px" class="${B[k]<0?'bad':''}">${fM(B[k]||0)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:3px">A.V. período B: <strong>${fPS(avB,1)}%</strong></div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">A: ${fM(A[k]||0)} (${fPS(avA,1)}%)</div>
       <div style="font-size:11px;margin-top:2px">
@@ -1786,7 +1786,7 @@ async function renderIntelP1(){
           <span style="font-size:10px;font-weight:700;color:white;white-space:nowrap">${fM(val)}</span>
         </div>
       </div>
-      <div style="font-size:11px;min-width:55px;text-align:right;font-weight:700;color:${cor}">${val>=0?'+':''}${fPS(val/Math.abs(bridgeLucro||1)*100,0)}%</div>
+      <div style="font-size:11px;min-width:55px;text-align:right;font-weight:700" class="${val>=0?'good':'bad'}">${val>=0?'+':''}${fPS(val/Math.abs(bridgeLucro||1)*100,0)}%</div>
       ${nota?`<div style="font-size:10px;color:var(--muted);min-width:120px">${nota}</div>`:''}
     </div>`;
   };
@@ -1808,7 +1808,7 @@ async function renderIntelP1(){
     ${bBar('(+/−) Δ Clientes — ativo caiu = recebeu',bridgeClientes,'',bridgeClientes>=0?'↓ clientes = entrou caixa':'↑ clientes = preso a receber')}
     ${bBar('(+/−) Δ Fornecedores — passivo caiu = pagou',bridgeFornec,'',bridgeFornec>=0?'↑ fornec = financiou':'↓ fornec = pagou')}
     ${bBar('(+/−) Δ Estoques — ativo caiu = liberou',bridgeEstoque,'',bridgeEstoque>=0?'↓ estoque = liberou':'↑ estoque = comprou mais')}
-    ${sepLinha}<span>Subtotal C1</span><span style="font-weight:700;color:${c1>=0?'var(--good)':'var(--bad)'}">${fM(c1)}</span></div>
+    ${sepLinha}<span>Subtotal C1</span><span class="${c1>=0?'good':'bad'}" style="font-weight:700">${fM(c1)}</span></div>
 
     <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px">
       Camada 2 — Investimentos & Financiamentos
@@ -1816,7 +1816,7 @@ async function renderIntelP1(){
     ${bBar('(+/−) Δ Imobilizado — subiu = CAPEX',-dImobilizado,'',dImobilizado>0?'↑ imob = investiu (saiu caixa)':'↓ imob = desinvestiu ou depreciou')}
     ${bBar('(+/−) Δ Financiamentos CP',bridgeFinanc,'',bridgeFinanc>=0?'↑ financ = tomou empréstimo':'↓ financ = pagou parcela')}
     ${bBar('(+/−) Δ Financiamentos LP',dFinancLP,'',Math.abs(dFinancLP)>500000?'⚠️ possível reclassificação LP→CP':'variação normal')}
-    ${sepLinha}<span>Subtotal C2</span><span style="font-weight:700;color:${c2>=0?'var(--good)':'var(--bad)'}">${fM(c2)}</span></div>
+    ${sepLinha}<span>Subtotal C2</span><span class="${c2>=0?'good':'bad'}" style="font-weight:700">${fM(c2)}</span></div>
 
     <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px">
       Camada 3 — Outros Passivos Operacionais
@@ -1824,16 +1824,16 @@ async function renderIntelP1(){
     ${bBar('(+/−) Δ Salários a Pagar',dSalarios,'','')}
     ${bBar('(+/−) Δ Obrigações Fiscais',dFiscais,'','')}
     ${bBar('(+/−) Δ Outras Obrigações',dOutrasObg,'','')}
-    ${sepLinha}<span>Subtotal C3</span><span style="font-weight:700;color:${c3>=0?'var(--good)':'var(--bad)'}">${fM(c3)}</span></div>
+    ${sepLinha}<span>Subtotal C3</span><span class="${c3>=0?'good':'bad'}" style="font-weight:700">${fM(c3)}</span></div>
 
     <div style="border-top:2px solid var(--ink);margin:10px 0 6px;display:flex;justify-content:space-between;font-size:12px;font-weight:700">
-      <span>Total Estimado</span><span style="color:${estimadoTotal>=0?'var(--good)':'var(--bad)'}">${fM(estimadoTotal)}</span>
+      <span>Total Estimado</span><span class="${estimadoTotal>=0?'good':'bad'}" style="font-weight:700">${fM(estimadoTotal)}</span>
     </div>
     ${bBar('(=) Variação de Caixa Real (FC)',caixaReal,'','')}
     
     <div style="margin-top:10px;padding:10px;border-radius:8px;background:${Math.abs(residuo)<300000?'#f0fdf4':'#fef9c3'};border:1px solid ${Math.abs(residuo)<300000?'#bbf7d0':'#fde68a'}">
       <div style="font-size:12px;font-weight:700;margin-bottom:4px">
-        Resíduo não explicado: <span style="color:${Math.abs(residuo)<300000?'var(--good)':'var(--warn)'}">${fM(residuo)}</span>
+        Resíduo não explicado: <span class="${Math.abs(residuo)<300000?'good':'neutral'}" style="font-weight:700">${fM(residuo)}</span>
       </div>
       <div style="font-size:11px;color:var(--muted);line-height:1.6">
         ${Math.abs(residuo)<100000
