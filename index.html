@@ -2021,822 +2021,254 @@ async function renderIntelP1(){
   fp.innerHTML=toolbar+secaoCards+destinoLucro+bridge+cicloCard+indicadores;
 }
 
+
+// ============================================================
+// GRÁFICO DE LINHA DINÂMICO — Módulo Inteligência P2
+// ============================================================
+const GRANDEZAS = [
+  // Valores monetários (eixo esquerdo)
+  {id:'recBruta',    label:'Faturamento (Rec. Bruta)',    tipo:'R$', fonte:'dre', campo:'recBruta_tej'},
+  {id:'recLiq',      label:'Receita Operacional Líquida', tipo:'R$', fonte:'dre', campo:'recLiq_tej'},
+  {id:'margemVenda', label:'Margem de Venda (R$)',        tipo:'R$', fonte:'dre', campo:'margemVenda_tej'},
+  {id:'margemContrib',label:'Margem de Contribuição (R$)',tipo:'R$', fonte:'dre', campo:'margemContrib_tej'},
+  {id:'ebitda',      label:'EBITDA (R$)',                 tipo:'R$', fonte:'dre', campo:'ebitda_tej'},
+  {id:'resLiquido',  label:'Resultado Líquido (R$)',      tipo:'R$', fonte:'dre', campo:'resLiquido_tej'},
+  {id:'resLucroLiq', label:'Lucro Líquido Final (R$)',    tipo:'R$', fonte:'dre', campo:'resLucroLiq_tej'},
+  {id:'varCaixa',    label:'Resultado de Caixa (FC)',     tipo:'R$', fonte:'fc',  campo:'varCaixa'},
+  {id:'cmvTotal',    label:'CMV Total (R$)',              tipo:'R$', fonte:'dre', campo:'cmvTotal_tej'},
+  {id:'despOperacionais',label:'Despesas Operacionais',   tipo:'R$', fonte:'dre', campo:'despOperacionais_tej'},
+  // Percentuais (eixo direito)
+  {id:'pctMargVenda',  label:'% Margem de Venda',         tipo:'%',  fonte:'calc', fn: d=>d.dre.recLiq_tej?(d.dre.margemVenda_tej/d.dre.recLiq_tej*100):0},
+  {id:'pctMargContrib',label:'% Margem de Contribuição',  tipo:'%',  fonte:'calc', fn: d=>d.dre.recLiq_tej?(d.dre.margemContrib_tej/d.dre.recLiq_tej*100):0},
+  {id:'pctEbitda',     label:'% EBITDA',                  tipo:'%',  fonte:'calc', fn: d=>d.dre.recLiq_tej?(d.dre.ebitda_tej/d.dre.recLiq_tej*100):0},
+  {id:'pctResLiq',     label:'% Resultado Líquido',       tipo:'%',  fonte:'calc', fn: d=>d.dre.recLiq_tej?(d.dre.resLiquido_tej/d.dre.recLiq_tej*100):0},
+  {id:'pctLucroFin',   label:'% Lucro Líquido Final',     tipo:'%',  fonte:'calc', fn: d=>d.dre.recLiq_tej?(d.dre.resLucroLiq_tej/d.dre.recLiq_tej*100):0},
+  // Dias (eixo direito)
+  {id:'ciclo', label:'Ciclo Financeiro (dias)', tipo:'d', fonte:'calc', fn: d=>{
+    const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;
+    const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;
+    const est=d.bp.estoques||0; const cli=d.bp.contasReceber||0; const forn=d.bp.fornecedores||0;
+    const compras=cmv+(est-(d.bp.estoquesAnt||est));
+    return est/(cmv/30) + cli/(rb/30) - forn/((compras>0?compras:cmv)/30);
+  }},
+  {id:'pme', label:'PME — Prazo Médio Estoque (dias)', tipo:'d', fonte:'calc', fn: d=>{
+    const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;
+    return d.bp.estoques/(cmv/30);
+  }},
+  {id:'pmr', label:'PMR — Prazo Médio Recebimento (dias)', tipo:'d', fonte:'calc', fn: d=>{
+    const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;
+    return d.bp.contasReceber/(rb/30);
+  }},
+  {id:'pmp', label:'PMP — Prazo Médio Pagamento (dias)', tipo:'d', fonte:'calc', fn: d=>{
+    const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;
+    const est=d.bp.estoques||0;
+    const compras=cmv+(est-(d.bp.estoquesAnt||est));
+    return d.bp.fornecedores/((compras>0?compras:cmv)/30);
+  }},
+];
+
+// Estado do gráfico
+if(!window.grafState) window.grafState = {
+  g1: 'recBruta',
+  g2: 'pctMargVenda',
+  ini: null,
+  fim: null,
+};
+
+function getValGrandeza(g, d){
+  if(g.fonte==='calc') return g.fn(d)||0;
+  if(g.fonte==='fc')   return d.fc[g.campo]||0;
+  if(g.fonte==='dre')  return d.dre[g.campo]||0;
+  return 0;
+}
+
+function fmtGrandeza(val, tipo){
+  if(tipo==='R$') return fM(val);
+  if(tipo==='%')  return fPS(val,1)+'%';
+  if(tipo==='d')  return val.toFixed(0)+' dias';
+  return val;
+}
+
 async function renderIntelP2(){
   const fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Carregando dados...</div>';
   const dados=await getDadosIntel();
   if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
 
-  if(!S.ini)S.ini=dados[0].rot;
-  if(!S.fim)S.fim=dados[dados.length-1].rot;
-  const iI=dados.findIndex(d=>d.rot===S.ini);
-  const iF=dados.findIndex(d=>d.rot===S.fim);
+  if(!window.grafState.ini) window.grafState.ini=dados[0].rot;
+  if(!window.grafState.fim) window.grafState.fim=dados[dados.length-1].rot;
+
+  const iI=dados.findIndex(d=>d.rot===window.grafState.ini);
+  const iF=dados.findIndex(d=>d.rot===window.grafState.fim);
   const sl=dados.slice(iI>=0?iI:0,iF>=0?iF+1:dados.length);
   const n=dados.length;
 
-  const opts=r=>dados.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
-  const toolbar=`<div class="toolbar">
-    <div class="tg"><label>Início</label><select onchange="S.ini=this.value;renderIntelP2()">${opts(S.ini)}</select></div>
-    <div class="tg"><label>Fim</label><select onchange="S.fim=this.value;renderIntelP2()">${opts(S.fim)}</select></div>
-    <div class="tg"><label>Atalho</label><div class="qbtns">
-      <button class="qbtn ${sl.length===3?'active':''}" onclick="setQ(3,${n})">Últ. 3 meses</button>
-      <button class="qbtn ${sl.length===6?'active':''}" onclick="setQ(6,${n})">Últ. 6 meses</button>
-      <button class="qbtn ${sl.length===12?'active':''}" onclick="setQ(12,${n})">Últ. 12 meses</button>
-      <button class="qbtn ${sl.length===dados.length?'active':''}" onclick="setQ(0,${n})">Período completo</button>
-    </div></div>
-  </div>`;
+  const g1=GRANDEZAS.find(g=>g.id===window.grafState.g1)||GRANDEZAS[0];
+  const g2=GRANDEZAS.find(g=>g.id===window.grafState.g2)||GRANDEZAS[10];
 
-  // Tabela evolução dos indicadores cruzados
-  const tabela=`<div class="section"><div class="shead"><h2>Evolução dos Indicadores — mês a mês</h2></div>
-    <div class="twrap"><table><thead><tr>
-      <th style="min-width:200px;text-align:left">Indicador</th>
-      ${sl.map(d=>`<th>${d.rot.toUpperCase()}</th>`).join('')}
-    </tr></thead><tbody>
-      ${[
-        {l:'Lucro Líquido (DRE)',fn:d=>fM(d.dre.resLucroLiq_tej||0)},
-        {l:'Variação de Caixa (FC)',fn:d=>fM(d.fc.varCaixa||0)},
-        {l:'Qualidade do Lucro %',fn:d=>{const q=d.fc.varCaixa/(d.dre.resLucroLiq_tej||1)*100;return fPS(q,0)+'%';}},
-        {l:'Ciclo Financeiro (dias)',fn:d=>{
-          const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;
-          const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;
-          const pme=d.bp.estoques/(cmv/30);
-          const pmr=d.bp.contasReceber/(rb/30);
-          const pmp=d.bp.fornecedores/(cmv/30);
-          return (pme+pmr-pmp).toFixed(0)+'d';}},
-        {l:'PME — Estoque (dias)',fn:d=>{const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;return (d.bp.estoques/(cmv/30)).toFixed(0)+'d';}},
-        {l:'PMR — Recebimento (dias)',fn:d=>{const rb=d.dre.recBruta_tej||d.dre.recLiq_tej||1;return (d.bp.contasReceber/(rb/30)).toFixed(0)+'d';}},
-        {l:'PMP — Pagamento (dias)',fn:d=>{const cmv=Math.abs(d.dre.cmvTotal_tej||0)||d.dre.recLiq_tej*0.727;const compras=cmv+(d.bp.estoques||0)-(d.bp.estoquesAnt||d.bp.estoques||0);return (d.bp.fornecedores/((compras>0?compras:cmv)/30)).toFixed(0)+'d';}},
-        {l:'ROE %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.patrimonioLiq||1)*100,1)+'%'},
-        {l:'ROA %',fn:d=>fPS((d.dre.resLucroLiq_tej||0)/(d.bp.totalAtivo||1)*100,1)+'%'},
-        {l:'Liquidez Corrente',fn:d=>d.bp.liquidezCorrente.toFixed(2)+'x'},
-        {l:'Dívida Total',fn:d=>fM(d.bp.financiamentosPC+d.bp.financiamentosPNC)},
-        {l:'EBITDA',fn:d=>fM(d.dre.ebitda_tej||0)},
-      ].map(row=>`<tr><th>${row.l}</th>${sl.map(d=>`<td class="cv">${row.fn(d)}</td>`).join('')}</tr>`).join('')}
-    </tbody></table></div></div>`;
+  const vals1=sl.map(d=>getValGrandeza(g1,d));
+  const vals2=sl.map(d=>getValGrandeza(g2,d));
+  const rots=sl.map(d=>d.rot.toUpperCase());
 
-  fp.innerHTML=toolbar+tabela;
-}
-
-// ============================================================
-// MÓDULO PREVISÃO / ESTRATÉGIA
-// ============================================================
-// Parâmetros históricos calculados automaticamente dos dados reais
-// Estes valores são recalculados cada vez que o módulo carrega
-let PARAMS = {
-  pctDeducoes:  8.22,   // % de deduções sobre receita bruta
-  pctCMV:       72.7,   // % CMV sobre receita líquida
-  pctDespVar:   4.7,    // % despesas variáveis sobre receita líquida
-  despFixasMes: 2208705,// despesas fixas mensais (média histórica)
-  pctEbitda:    6.5,    // % EBITDA histórico (referência)
-  pctLucroFin:  2.3,    // % lucro final histórico (referência)
-  pme:          20,     // prazo médio estoque (dias)
-  pmr:          17,     // prazo médio recebimento (dias)
-  pmp:          21,     // prazo médio pagamento (dias)
-  recLiqMedMes: 13614346, // receita líquida média mensal histórica
-};
-
-async function calcularParams(){
-  // Recalcula os parâmetros com os dados reais carregados
-  try {
-    const [fcDados, dreDados, bpDados] = await Promise.all([
-      Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a))),
-      Promise.all(ARQ_DRE.operacional.map(a=>loadDRE(a))),
-      Promise.all(ARQ_BP.operacional.map(a=>loadBP(a))),
-    ]);
-    const validos = fcDados.filter(Boolean).map(fc=>{
-      const dre=dreDados.find(d=>d&&d.rot===fc.rot);
-      const bp=bpDados.find(d=>d&&d.rot===fc.rot);
-      if(!dre||!bp)return null;
-      const rl=dre.recLiq_tej||0;
-      const rb=dre.recBruta_tej||rl;
-      if(!rl)return null;
-      return {
-        recLiq:rl, recBruta:rb,
-        cmv: dre.cmvTotal_tej||0,
-        despVar: dre.despVariaveis_tej||0,
-        despFixas: dre.despFixas_tej||0,
-        ebitda: dre.ebitda_tej||0,
-        lucroFin: dre.resLucroLiq_tej||0,
-        estoques: bp.estoques||0,
-        clientes: bp.contasReceber||0,
-        fornec: bp.fornecedores||0,
-      };
-    }).filter(Boolean);
-    if(!validos.length)return;
-    const n=validos.length;
-    const avg=k=>validos.reduce((s,d)=>s+(d[k]||0),0)/n;
-    const avgPct=(num,den)=>validos.reduce((s,d)=>s+(d[den]?d[num]/d[den]*100:0),0)/n;
-    PARAMS = {
-      pctDeducoes: validos.reduce((s,d)=>s+(d.recBruta?((d.recBruta-d.recLiq)/d.recBruta*100):0),0)/n,
-      pctCMV:      avgPct('cmv','recLiq'),
-      pctDespVar:  avgPct('despVar','recLiq'),
-      despFixasMes:avg('despFixas'),
-      pctEbitda:   avgPct('ebitda','recLiq'),
-      pctLucroFin: avgPct('lucroFin','recLiq'),
-      // Fórmulas corretas: PME/CMV, PMR/RecBruta, PMP/Compras
-      pme: validos.reduce((s,d)=>s+(d.cmv>0?d.estoques/(d.cmv/30):0),0)/n,
-      pmr: validos.reduce((s,d)=>s+(d.recBruta>0?d.clientes/(d.recBruta/30):0),0)/n,
-      // PMP usa Compras = CMV + ΔEstoque como denominador
-      pmp: validos.reduce((s,d)=>s+(d.cmv>0?d.fornec/((d.cmv+d.estoques-(d.estoquesAnt||d.estoques))/30||d.cmv/30):0),0)/n,
-      recLiqMedMes: avg('recLiq'),
-    };
-  } catch(e){ console.log('Usando parâmetros padrão',e); }
-}
-
-async function renderPrevisao(){
-  document.getElementById('main').innerHTML=`
-    <div class="mtabs">
-      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Simulador de Faturamento</button>
-      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Projeção 12 Meses</button>
-    </div>
-    <div id="fp"><div class="loading">Carregando parâmetros históricos...</div></div>`;
-  await calcularParams();
-  if(S.pag===1)renderSimulador();else renderProjecao12();
-}
-
-function renderSimulador(){
-  const fp=document.getElementById('fp');
-  const recLiqMed=PARAMS.recLiqMedMes;
-
-  fp.innerHTML=`
-    <div class="section">
-      <div class="shead">
-        <h2>Simulador de Impacto do Faturamento</h2>
-        <span class="legend">Parâmetros calibrados com ${ARQ.operacional.length} meses históricos</span>
-      </div>
-      <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-              Receita Bruta Mensal (R$)
-            </label>
-            <input type="number" id="sim-receita" value="${Math.round(recLiqMed*1.1/(1-PARAMS.pctDeducoes/100))}"
-              style="width:100%;padding:10px;border:2px solid var(--accent);border-radius:10px;font-size:16px;font-weight:700;text-align:right"
-              oninput="atualizarSimulador()"/>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Média histórica: ${fM(recLiqMed/(1-PARAMS.pctDeducoes/100))}/mês</div>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-              Estoques variam?
-            </label>
-            <select id="sim-estoque" onchange="atualizarSimulador()"
-              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:13px">
-              <option value="0">Não — estoques estáveis</option>
-              <option value="1">Sim — proporcional às vendas</option>
-              <option value="-1">Reduzindo — queima de estoque</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-              Investimentos no mês
-            </label>
-            <input type="number" id="sim-invest" value="0"
-              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;text-align:right"
-              oninput="atualizarSimulador()"/>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);background:white;border-radius:8px;padding:10px">
-          <strong>Parâmetros históricos usados:</strong>
-          CMV ${PARAMS.pctCMV.toFixed(1)}% · Desp.Var ${PARAMS.pctDespVar.toFixed(1)}% · 
-          Desp.Fixas ${fM(PARAMS.despFixasMes)}/mês · 
-          Deduções ${PARAMS.pctDeducoes.toFixed(1)}% · 
-          PME ${PARAMS.pme.toFixed(0)}d · PMR ${PARAMS.pmr.toFixed(0)}d · PMP ${PARAMS.pmp.toFixed(0)}d
-          <br><a href="#" onclick="abrirEditarParams();return false" style="color:var(--accent)">✏️ Ajustar parâmetros manualmente</a>
-        </div>
-      </div>
-      <div id="sim-resultado"></div>
-    </div>
-    <div id="sim-params-editor" style="display:none" class="section">
-      <div class="shead"><h2>Ajustar Parâmetros</h2></div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-        ${[
-          {id:'p-cmv',label:'CMV %',val:PARAMS.pctCMV.toFixed(1)},
-          {id:'p-despvar',label:'Desp. Var %',val:PARAMS.pctDespVar.toFixed(1)},
-          {id:'p-deduc',label:'Deduções %',val:PARAMS.pctDeducoes.toFixed(1)},
-          {id:'p-despfix',label:'Desp. Fixas R$',val:Math.round(PARAMS.despFixasMes)},
-          {id:'p-pme',label:'PME (dias)',val:Math.round(PARAMS.pme)},
-          {id:'p-pmr',label:'PMR (dias)',val:Math.round(PARAMS.pmr)},
-          {id:'p-pmp',label:'PMP (dias)',val:Math.round(PARAMS.pmp)},
-        ].map(p=>`<div>
-          <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px">${p.label}</label>
-          <input type="number" id="${p.id}" value="${p.val}" step="0.1"
-            style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px"
-            oninput="salvarParams();atualizarSimulador()"/>
-        </div>`).join('')}
-      </div>
-    </div>`;
-
-  atualizarSimulador();
-}
-
-window.abrirEditarParams=function(){
-  const el=document.getElementById('sim-params-editor');
-  el.style.display=el.style.display==='none'?'block':'none';
-};
-
-window.salvarParams=function(){
-  const g=id=>{const el=document.getElementById(id);return el?parseFloat(el.value)||0:0;};
-  PARAMS.pctCMV      = g('p-cmv');
-  PARAMS.pctDespVar  = g('p-despvar');
-  PARAMS.pctDeducoes = g('p-deduc');
-  PARAMS.despFixasMes= g('p-despfix');
-  PARAMS.pme         = g('p-pme');
-  PARAMS.pmr         = g('p-pmr');
-  PARAMS.pmp         = g('p-pmp');
-};
-
-window.atualizarSimulador=function(){
-  const recBruta = parseFloat(document.getElementById('sim-receita')?.value)||0;
-  const estoqueMode = parseInt(document.getElementById('sim-estoque')?.value)||0;
-  const invest = parseFloat(document.getElementById('sim-invest')?.value)||0;
-  if(!recBruta)return;
-
-  // DRE PROJETADA
-  const deducoes   = recBruta * PARAMS.pctDeducoes/100;
-  const recLiq     = recBruta - deducoes;
-  const cmv        = recLiq * PARAMS.pctCMV/100;
-  const margVenda  = recLiq - cmv;
-  const despVar    = recLiq * PARAMS.pctDespVar/100;
-  const margContr  = margVenda - despVar;
-  const despFixas  = PARAMS.despFixasMes;
-  const ebitda     = margContr - despFixas;
-  const lucroLiq   = ebitda * (PARAMS.pctLucroFin/PARAMS.pctEbitda||1); // proporção histórica
-
-  // CAPITAL DE GIRO PROJETADO
-  const estNec     = recLiq/30 * PARAMS.pme;  // estoque necessário
-  const clientesNec= recLiq/30 * PARAMS.pmr;  // contas a receber necessárias
-  const fornecNec  = recLiq/30 * PARAMS.pmp;  // fornecedores projetados
-
-  // VARIAÇÃO DE CAPITAL DE GIRO vs média histórica
-  const dEstoque   = estoqueMode===0 ? 0 : estoqueMode===1 ? estNec - PARAMS.recLiqMedMes/30*PARAMS.pme : -(PARAMS.recLiqMedMes/30*PARAMS.pme*0.1);
-  const dClientes  = clientesNec - PARAMS.recLiqMedMes/30*PARAMS.pmr;
-  const dFornec    = fornecNec   - PARAMS.recLiqMedMes/30*PARAMS.pmp;
-
-  // GERAÇÃO DE CAIXA
-  const geraCaixa  = ebitda - dEstoque - dClientes + dFornec - invest;
-
-  // Montar resultado
-  const row=(label,val,destaque,indent)=>{
-    const cls=val<0?'bad':val>0?'good':'';
-    return `<tr class="${destaque?'rs':''}">
-      <td style="font-size:13px;padding:8px 10px;text-align:left;${indent?'padding-left:24px;color:var(--muted)':''}">${label}</td>
-      <td style="font-size:13px;font-weight:700;text-align:right;padding:8px 10px" class="${destaque?cls:''}">${fM(val)}</td>
-      <td style="font-size:12px;text-align:right;padding:8px 10px;color:var(--muted)">${recLiq?fPS(val/recLiq*100,1)+'%':''}</td>
-    </tr>`;
-  };
-
-  const pctVar=(val,base)=>base?((val-base)/Math.abs(base)*100):0;
-  const histMedio=PARAMS.recLiqMedMes;
-  const compareRow=(label,val,hist)=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
-      <span style="color:var(--muted)">${label}</span>
-      <div style="text-align:right">
-        <span style="font-weight:700">${fM(val)}</span>
-        <span class="${dcls(val-hist)}" style="margin-left:8px;font-size:11px">${fP(pctVar(val,hist))} vs média</span>
-      </div>
-    </div>`;
-
-  document.getElementById('sim-resultado').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div>
-        <div class="section" style="margin-bottom:10px">
-          <div class="shead"><h2>DRE Projetada</h2><span class="legend">mês simulado</span></div>
-          <div class="twrap">
-            <table style="width:100%">
-              <thead><tr>
-                <th style="text-align:left;padding:8px 10px">Linha</th>
-                <th style="text-align:right;padding:8px 10px">Valor</th>
-                <th style="text-align:right;padding:8px 10px">A.V.%</th>
-              </tr></thead>
-              <tbody>
-                ${row('Receita Bruta',recBruta,false,false)}
-                ${row('(-) Deduções / Impostos',-deducoes,false,true)}
-                ${row('(=) Receita Operacional Líquida',recLiq,true,false)}
-                ${row('(-) CMV',-cmv,false,true)}
-                ${row('(=) Margem de Venda',margVenda,true,false)}
-                ${row('(-) Despesas Variáveis',-despVar,false,true)}
-                ${row('(=) Margem de Contribuição',margContr,true,false)}
-                ${row('(-) Despesas Fixas',-despFixas,false,true)}
-                ${row('(=) EBITDA',ebitda,true,false)}
-                ${row('(=) Lucro Líquido Estimado',lucroLiq,true,false)}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="section" style="margin-bottom:10px">
-          <div class="shead"><h2>Impacto no Caixa</h2></div>
-          <table style="width:100%">
-            <tbody>
-              <tr class="rs"><td style="padding:8px 10px;font-size:13px">EBITDA gerado</td>
-                <td style="text-align:right;font-weight:700;padding:8px 10px" class="${ebitda>=0?'good':'bad'}">${fM(ebitda)}</td></tr>
-              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Estoques</td>
-                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(-dEstoque)}">${fM(-dEstoque)}</td></tr>
-              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Clientes</td>
-                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(-dClientes)}">${fM(-dClientes)}</td></tr>
-              <tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(+/-) Var. Fornecedores</td>
-                <td style="text-align:right;font-size:12px;padding:6px 10px" class="${dcls(dFornec)}">${fM(dFornec)}</td></tr>
-              ${invest>0?`<tr><td style="padding:6px 10px;font-size:12px;color:var(--muted);padding-left:20px">(-) Investimentos</td>
-                <td style="text-align:right;font-size:12px;padding:6px 10px;color:var(--bad)">${fM(-invest)}</td></tr>`:''}
-              <tr class="rs"><td style="padding:8px 10px;font-size:13px">Geração de Caixa Estimada</td>
-                <td style="text-align:right;font-weight:700;padding:8px 10px" class="${geraCaixa>=0?'good':'bad'}">${fM(geraCaixa)}</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="section">
-          <div class="shead"><h2>Capital de Giro Necessário</h2></div>
-          ${compareRow('Estoque necessário',estNec,PARAMS.recLiqMedMes/30*PARAMS.pme)}
-          ${compareRow('Clientes (a receber)',clientesNec,PARAMS.recLiqMedMes/30*PARAMS.pmr)}
-          ${compareRow('Fornecedores (a pagar)',fornecNec,PARAMS.recLiqMedMes/30*PARAMS.pmp)}
-          <div style="margin-top:10px;padding:10px;background:#f0f5ff;border-radius:8px;font-size:12px;line-height:1.7">
-            <strong>Necessidade líquida de CG:</strong> ${fM(estNec+clientesNec-fornecNec)}<br>
-            Ciclo financeiro projetado: <strong>${(PARAMS.pme+PARAMS.pmr-PARAMS.pmp).toFixed(0)} dias</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="section">
-      <div class="shead"><h2>Comparação com histórico</h2></div>
-      <div class="cards">
-        ${[
-          {t:'Receita Líquida',v:recLiq,h:histMedio},
-          {t:'EBITDA',v:ebitda,h:histMedio*PARAMS.pctEbitda/100},
-          {t:'Lucro Líquido',v:lucroLiq,h:histMedio*PARAMS.pctLucroFin/100},
-          {t:'Geração de Caixa',v:geraCaixa,h:PARAMS.recLiqMedMes*PARAMS.pctLucroFin/100},
-        ].map(it=>{
-          const d=it.v-it.h;
-          const p=it.h?(d/Math.abs(it.h)*100):0;
-          return `<div class="kcard" style="min-height:0;padding:12px">
-            <h3>${it.t}</h3>
-            <div class="kval ${it.v<0?'bad':''}" style="font-size:20px">${fM(it.v)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Média histórica: ${fM(it.h)}</div>
-            <div style="font-size:12px;margin-top:2px"><span class="${dcls(d)}">${fM(d)} · ${fP(p)}</span></div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-};
-
-async function renderProjecao12(){
-  const fp=document.getElementById('fp');
-  const recBase=PARAMS.recLiqMedMes;
-
-  fp.innerHTML=`
-    <div class="section">
-      <div class="shead"><h2>Projeção 12 Meses</h2>
-        <span class="legend">Ajuste o crescimento mensal e veja o impacto acumulado</span>
-      </div>
-      <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-            Receita Base (mês 1) R$
-          </label>
-          <input type="number" id="proj-base" value="${Math.round(recBase)}"
-            style="padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;width:200px;text-align:right"
-            oninput="atualizarProjecao()"/>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-            Crescimento mensal %
-          </label>
-          <input type="number" id="proj-cresc" value="1.5" step="0.5"
-            style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:140px;text-align:right"
-            oninput="atualizarProjecao()"/>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">
-            Mês de início
-          </label>
-          <select id="proj-mesini" onchange="atualizarProjecao()"
-            style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
-            ${['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27'].map(m=>`<option>${m}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div id="proj-resultado"></div>
-    </div>`;
-
-  atualizarProjecao();
-}
-
-window.atualizarProjecao=function(){
-  const base   = parseFloat(document.getElementById('proj-base')?.value)||PARAMS.recLiqMedMes;
-  const cresc  = parseFloat(document.getElementById('proj-cresc')?.value)||0;
-  const mesIni = document.getElementById('proj-mesini')?.value||'abr/26';
-
-  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const [mesStr,anoStr]=mesIni.split('/');
-  let iMes=meses.indexOf(mesStr);
-  let iAno=parseInt('20'+anoStr);
-
-  let caixaAcum=0;
-  let rows='';
-  let totalRecLiq=0,totalEbitda=0,totalLucro=0,totalCaixa=0;
-
-  for(let i=0;i<12;i++){
-    const recLiq  = base * Math.pow(1+cresc/100, i);
-    const recBruta= recLiq/(1-PARAMS.pctDeducoes/100);
-    const cmv     = recLiq * PARAMS.pctCMV/100;
-    const despVar = recLiq * PARAMS.pctDespVar/100;
-    const ebitda  = recLiq - cmv - despVar - PARAMS.despFixasMes;
-    const lucro   = ebitda * (PARAMS.pctLucroFin/PARAMS.pctEbitda||1);
-    // Sem variação de CG (estoque estável)
-    const caixaMes= ebitda;
-    caixaAcum    += caixaMes;
-    totalRecLiq  += recLiq;
-    totalEbitda  += ebitda;
-    totalLucro   += lucro;
-    totalCaixa   += caixaMes;
-
-    const rot=meses[iMes]+'/'+String(iAno).slice(2);
-    iMes=(iMes+1)%12;
-    if(iMes===0)iAno++;
-
-    rows+=`<tr>
-      <td style="font-weight:700;padding:7px 10px">${rot}</td>
-      <td class="cv">${fM(recLiq)}</td>
-      <td class="cv">${fM(cmv)}</td>
-      <td class="cv">${fM(recLiq-cmv-despVar)}</td>
-      <td class="cv">${fM(ebitda)}</td>
-      <td class="cv ${ebitda>0?'good':'bad'}">${fPS(ebitda/recLiq*100,1)}%</td>
-      <td class="cv ${lucro>0?'good':'bad'}">${fM(lucro)}</td>
-      <td class="cv ${caixaMes>0?'good':'bad'}">${fM(caixaMes)}</td>
-      <td class="cv ${caixaAcum>0?'good':'bad'}">${fM(caixaAcum)}</td>
-    </tr>`;
-  }
-
-  document.getElementById('proj-resultado').innerHTML=`
-    <div class="cards" style="margin-bottom:14px">
-      ${[
-        {t:'Receita Líquida Total',v:totalRecLiq},
-        {t:'EBITDA Total',v:totalEbitda},
-        {t:'Lucro Líquido Total',v:totalLucro},
-        {t:'Geração de Caixa Total',v:totalCaixa},
-      ].map(it=>`<div class="kcard" style="min-height:0;padding:12px">
-        <h3>${it.t}</h3>
-        <div class="kval ${it.v<0?'bad':''}" style="font-size:20px">${fM(it.v)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">Média mensal: ${fM(it.v/12)}</div>
-      </div>`).join('')}
-    </div>
-    <div class="twrap"><table>
-      <thead><tr>
-        <th style="text-align:left">Mês</th>
-        <th>Rec. Líquida</th><th>CMV</th><th>Marg. Contrib.</th>
-        <th>EBITDA</th><th>Margem %</th><th>Lucro Liq.</th>
-        <th>Caixa Mês</th><th>Caixa Acum.</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
-};
-
-// ============================================================
-// MÓDULO BALANCETE
-// ============================================================
-const ARQ_BAL = {
-  tejotao: ['bal0125.Html','bal0225.Html','bal0325.Html','bal0425.Html','bal0525.Html',
-            'bal0625.Html','bal0725.Html','bal0825.Html','bal0925.Html','bal1025.Html',
-            'bal1125.Html','bal1225.Html','bal0126.Html','bal0226.Html','bal0326.Html'],
-};
-
-const UNIDADES_BAL = [
-  {id:'total', label:'Total',        siCol:4,  debCol:6,  credCol:7,  sfCol:8,  orcCol:40},
-  {id:'mg',    label:'Mato Grosso',  siCol:10, debCol:12, credCol:13, sfCol:14, orcCol:43},
-  {id:'mv',    label:'Melo Viana',   siCol:16, debCol:18, credCol:19, sfCol:20, orcCol:46},
-  {id:'am',    label:'Amazonas',     siCol:22, debCol:24, credCol:25, sfCol:26, orcCol:49},
-  {id:'il',    label:'Interlagos',   siCol:28, debCol:30, credCol:31, sfCol:32, orcCol:52},
-  {id:'ind',   label:'Indústria',    siCol:34, debCol:36, credCol:37, sfCol:38, orcCol:55},
-];
-
-function rotBAL(arq){
-  // bal0125.Html → jan/25
-  const m = arq.match(/bal(\d{2})(\d{2})\.Html/i);
-  if(!m) return arq;
-  const meses=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  return (meses[parseInt(m[1])]||m[1])+'/'+m[2];
-}
-
-async function loadBAL(arq){
-  const k='bal/'+arq;
-  if(S.cache[k]) return S.cache[k];
-  try{
-    const r=await fetch(`${BASE}/data/balancete/${encodeURIComponent(arq)}`);
-    if(!r.ok) return null;
-    const buf=await r.arrayBuffer();
-    // Balancete HTML exportado em latin-1 (Windows-1252)
-    const txt=new TextDecoder('windows-1252').decode(buf);
-    const d=parseBAL(txt,arq);
-    S.cache[k]=d; return d;
-  }catch(e){ return null; }
-}
-
-function parseBAL(html, arq){
-  // Parser de HTML simples via regex para extrair células da tabela
-  const rows=[];
-  const trRe=/<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  const tdRe=/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi;
-  const valRe=/<div[^>]*>([\s\S]*?)<\/div>/i;
-  let trMatch;
-  while((trMatch=trRe.exec(html))!==null){
-    const cells=[];
-    let tdMatch;
-    const tdRe2=/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
-    while((tdMatch=tdRe2.exec(trMatch[1]))!==null){
-      const v=valRe.exec(tdMatch[0]);
-      cells.push(v?v[1].replace(/<[^>]+>/g,'').trim():'');
-    }
-    if(cells.length>4) rows.push(cells);
-  }
-
-  function pm(t){
-    if(!t||!t.trim()) return 0;
-    try{ return parseFloat(t.replace(/\./g,'').replace(',','.')); }catch(e){ return 0; }
-  }
-
-  // Filtrar linhas de dados (classificação começa com número)
-  const contas=rows.filter(r=>r[0]&&/^\d/.test(r[0])&&r.length>8);
-
-  return {
-    rot: rotBAL(arq), arq,
-    contas: contas.map(r=>({
-      classif: r[0]||'',
-      descricao: r[1]||'',
-      conta: r[2]||'',
-      tipo: r[3]||'',
-      nivel: (r[0]||'').split('.').length,
-      dbcr: r[9]||'',
-      // Valores por unidade
-      total:   {si:pm(r[4]),  deb:pm(r[6]),  cred:pm(r[7]),  sf:pm(r[8]),  orc:pm(r[40])},
-      mg:      {si:pm(r[10]), deb:pm(r[12]), cred:pm(r[13]), sf:pm(r[14]), orc:pm(r[43])},
-      mv:      {si:pm(r[16]), deb:pm(r[18]), cred:pm(r[19]), sf:pm(r[20]), orc:pm(r[46])},
-      am:      {si:pm(r[22]), deb:pm(r[24]), cred:pm(r[25]), sf:pm(r[26]), orc:pm(r[49])},
-      il:      {si:pm(r[28]), deb:pm(r[30]), cred:pm(r[31]), sf:pm(r[32]), orc:pm(r[52])},
-      ind:     {si:pm(r[34]), deb:pm(r[36]), cred:pm(r[37]), sf:pm(r[38]), orc:pm(r[55])},
-    }))
-  };
-}
-
-// Estado do módulo balancete
-let balState = {
-  mes: null, unidade: 'total', nivel: 5, busca: '', expandidos: {}
-};
-
-async function renderBalancete(){
-  document.getElementById('main').innerHTML=`
-    <div class="mtabs">
-      <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Consulta do Balancete</button>
-      <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Comparativo por Unidade</button>
-    </div>
-    <div id="fp"><div class="loading">Carregando balancete...</div></div>`;
-  if(S.pag===1) renderBalP1();
-  else renderBalP2();
-}
-
-async function renderBalP1(){
-  const fp=document.getElementById('fp');
-  fp.innerHTML='<div class="loading">Carregando balancete...</div>';
-
-  // Carregar todos os arquivos disponíveis
-  const todos=await Promise.all(ARQ_BAL.tejotao.map(a=>loadBAL(a)));
-  const disponiveis=todos.filter(Boolean);
-
-  if(!disponiveis.length){
-    fp.innerHTML=`<div class="errmsg">Nenhum arquivo de balancete encontrado.<br>
-    Crie a pasta <code>data/balancete/</code> no GitHub e suba os arquivos <code>bal0125.Html</code>, etc.</div>`;
-    return;
-  }
-
-  if(!balState.mes) balState.mes=disponiveis[disponiveis.length-1].rot;
-  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
-
-  // Toolbar
-  const mesOpts=disponiveis.map(d=>`<option value="${d.rot}" ${d.rot===balState.mes?'selected':''}>${d.rot}</option>`).join('');
-  const unidOpts=UNIDADES_BAL.map(u=>`<option value="${u.id}" ${u.id===balState.unidade?'selected':''}>${u.label}</option>`).join('');
+  // Seletor de grandezas
+  const mkOpts=(sel)=>GRANDEZAS.map(g=>`<option value="${g.id}" ${g.id===sel?'selected':''}>${g.label}</option>`).join('');
+  const optsRot=r=>dados.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
 
   fp.innerHTML=`
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-      <div class="tg"><label>Mês</label>
-        <select onchange="balState.mes=this.value;renderBalP1()">${mesOpts}</select></div>
-      <div class="tg"><label>Unidade</label>
-        <select onchange="balState.unidade=this.value;renderBalP1()">${unidOpts}</select></div>
-      <div class="tg"><label>Nível máximo</label>
-        <select onchange="balState.nivel=+this.value;renderBalP1()">
-          ${[1,2,3,4,5].map(n=>`<option value="${n}" ${balState.nivel===n?'selected':''}>${n} — ${['Grupos principais','Subgrupos','Contas sintéticas','Contas analíticas','Contas detalhadas'][n-1]}</option>`).join('')}
-        </select></div>
-      <div class="tg"><label>Buscar conta</label>
-        <input type="text" placeholder="nome ou código..." value="${balState.busca}"
-          style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:200px"
-          oninput="balState.busca=this.value;renderBalContasOnly()"/></div>
-      <div style="align-self:flex-end;font-size:12px;color:var(--muted);padding-bottom:6px">
-        ${bal.contas.length} contas · ${bal.rot}
+      <div class="tg">
+        <label style="color:#3b82f6;font-weight:800">━━ Grandeza 1</label>
+        <select onchange="window.grafState.g1=this.value;renderIntelP2()" style="border-color:#3b82f6">${mkOpts(g1.id)}</select>
+      </div>
+      <div class="tg">
+        <label style="color:#10b981;font-weight:800">╌╌ Grandeza 2</label>
+        <select onchange="window.grafState.g2=this.value;renderIntelP2()" style="border-color:#10b981">${mkOpts(g2.id)}</select>
+      </div>
+      <div class="tg"><label>Início</label>
+        <select onchange="window.grafState.ini=this.value;renderIntelP2()">${optsRot(window.grafState.ini)}</select>
+      </div>
+      <div class="tg"><label>Fim</label>
+        <select onchange="window.grafState.fim=this.value;renderIntelP2()">${optsRot(window.grafState.fim)}</select>
+      </div>
+      <div class="tg"><label>Atalho</label><div class="qbtns">
+        <button class="qbtn" onclick="window.grafState.ini=dados[Math.max(0,${n}-3)].rot;window.grafState.fim=dados[${n}-1].rot;renderIntelP2()">3 meses</button>
+        <button class="qbtn" onclick="window.grafState.ini=dados[Math.max(0,${n}-6)].rot;window.grafState.fim=dados[${n}-1].rot;renderIntelP2()">6 meses</button>
+        <button class="qbtn" onclick="window.grafState.ini=dados[0].rot;window.grafState.fim=dados[${n}-1].rot;renderIntelP2()">Completo</button>
+      </div></div>
+    </div>
+
+    <div class="section">
+      <div class="shead">
+        <h2>Evolução — ${g1.label} vs ${g2.label}</h2>
+        <span class="legend">${sl.length} meses · ${sl[0].rot} até ${sl[sl.length-1].rot}</span>
+      </div>
+      <div id="graf-container" style="position:relative;height:340px;margin-bottom:16px">
+        <canvas id="graf-canvas" style="width:100%;height:100%"></canvas>
+      </div>
+      <div style="display:flex;gap:24px;justify-content:center;font-size:12px;margin-bottom:12px">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:28px;height:3px;background:#3b82f6;border-radius:2px"></span>
+          ${g1.label} (${g1.tipo==='R$'?'R$':g1.tipo==='%'?'%':'dias'})
+        </span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:28px;height:3px;background:#10b981;border-radius:2px;border-top:2px dashed #10b981"></span>
+          ${g2.label} (${g2.tipo==='R$'?'R$':g2.tipo==='%'?'%':'dias'})
+        </span>
       </div>
     </div>
 
-    <div id="bal-kpis" style="margin-bottom:10px"></div>
-    <div id="bal-tabela"></div>`;
-
-  renderBalKPIs(bal);
-  renderBalContas(bal);
-}
-
-function renderBalKPIs(bal){
-  const u=balState.unidade;
-  const ativo  =bal.contas.find(c=>c.classif==='1');
-  const passivo=bal.contas.find(c=>c.classif==='2');
-  const result =bal.contas.find(c=>c.classif==='3');
-  const pc     =bal.contas.find(c=>c.classif==='2.1');
-  const pl     =bal.contas.find(c=>c.classif==='2.5');
-  const rec    =bal.contas.find(c=>c.classif==='3.1');
-  const cmv    =bal.contas.find(c=>c.classif==='3.2');
-  const desp   =bal.contas.find(c=>c.classif==='3.3');
-
-  // Buscar mais grupos
-  const pas     = bal.contas.find(c=>c.classif==='2');
-  const pnc     = bal.contas.find(c=>c.classif==='2.2');
-  const desp3   = bal.contas.find(c=>c.classif==='3.3');
-
-  const kpis=[
-    {t:'Total do Ativo',      v:ativo  ? ativo[u].sf  : 0,  cor:'#3b82f6'},
-    {t:'Total do Passivo',    v:pas    ? pas[u].sf    : 0,  cor:'#ef4444'},
-    {t:'Patrimônio Líquido',  v:pl     ? pl[u].sf     : 0,  cor:'#15803d'},
-    {t:'Receitas do Mês',     v:rec    ? rec[u].cred-rec[u].deb : 0, cor:'#8b5cf6'},
-    {t:'CMV do Mês',          v:cmv    ? cmv[u].deb-cmv[u].cred : 0, cor:'#f59e0b'},
-    {t:'Despesas Operacionais',v:desp3 ? desp3[u].deb-desp3[u].cred : 0, cor:'#06b6d4'},
-  ];
-
-  document.getElementById('bal-kpis').innerHTML=`<div class="cards">
-    ${kpis.map(k=>`<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${k.cor}">
-      <h3>${k.t}</h3>
-      <div class="kval" style="font-size:18px">${fM(k.v)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">
-        Unidade: ${UNIDADES_BAL.find(u=>u.id===balState.unidade)?.label}
-      </div>
-    </div>`).join('')}
-  </div>`;
-}
-
-function renderBalContasOnly(){
-  const disponiveis=Object.values(S.cache)
-    .filter(d=>d&&d.rot&&d.contas)
-    .filter(d=>ARQ_BAL.tejotao.map(a=>rotBAL(a)).includes(d.rot));
-  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
-  if(bal) renderBalContas(bal);
-}
-
-function renderBalContas(bal){
-  const u=balState.unidade;
-  const busca=balState.busca.toLowerCase();
-  const maxNivel=balState.nivel;
-
-  // Filtrar contas
-  let contas=bal.contas.filter(c=>{
-    if(c.nivel>maxNivel) return false;
-    if(busca && !c.descricao.toLowerCase().includes(busca) && !c.classif.includes(busca) && !c.conta.includes(busca)) return false;
-    return true;
-  });
-
-  // Cor por grupo principal
-  const corGrupo=(c)=>{
-    const g=c.classif.split('.')[0];
-    return {1:'#dbeafe',2:'#fef9c3',3:'#dcfce7',}[g]||'white';
-  };
-
-  const indentPx=(nivel)=>(nivel-1)*16;
-
-  const linhas=contas.map(c=>{
-    const v=c[u];
-    const isSint=c.tipo==='TT';
-    const sf=v.sf; const dbcr=c.dbcr;
-    const cor=sf<0?'var(--bad)':'inherit';
-    const bg=isSint&&c.nivel<=2?corGrupo(c):'white';
-    const fw=isSint?'700':'400';
-    const fs=c.nivel===1?'14px':c.nivel===2?'13px':'12px';
-    const pct=v.si!==0?((v.sf-v.si)/Math.abs(v.si)*100):0;
-
-    return `<tr style="background:${bg}">
-      <td style="padding:6px 10px;font-size:${fs};font-weight:${fw};padding-left:${indentPx(c.nivel)+10}px;min-width:50px">${c.classif}</td>
-      <td style="padding:6px 10px;font-size:${fs};font-weight:${fw};min-width:250px">${c.descricao}</td>
-      <td style="padding:6px 10px;font-size:11px;color:var(--muted);text-align:center">${c.conta}</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:${fw}">${fM(v.si)}</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#1d4ed8">${fM(v.deb)}</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#15803d">${fM(v.cred)}</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;color:#7c3aed;font-weight:${isSint?'700':'400'}">${
-        // Usa o DB/CR do próprio campo — natureza real da conta
-        fM(c.dbcr==='DB' ? v.deb-v.cred : v.cred-v.deb)
-      }</td>
-      <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:700;color:${cor}">${fM(sf)}</td>
-      <td style="padding:6px 10px;font-size:11px;text-align:center;font-weight:700;color:${dbcr==='DB'?'#1d4ed8':'#15803d'}">${dbcr}</td>
-      ${v.orc?`<td style="padding:6px 10px;font-size:11px;text-align:right;color:var(--muted)">${fM(v.orc)}</td>
-      <td style="padding:6px 10px;font-size:11px;text-align:right;color:${sf>=v.orc?'var(--good)':'var(--bad)'}">${v.orc?fPS(sf/v.orc*100,0)+'%':'—'}</td>`:''}
-    </tr>`;
-  }).join('');
-
-  const temOrc=contas.some(c=>c[u].orc>0);
-
-  document.getElementById('bal-tabela').innerHTML=`
-    <div class="section" style="padding:0">
-      <div class="twrap" style="max-height:620px">
-        <table style="width:100%">
-          <thead><tr style="position:sticky;top:0;z-index:3;background:#f8fafc">
-            <th style="padding:8px 10px;text-align:left;font-size:10px;min-width:80px">Classif.</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;min-width:250px">Descrição</th>
-            <th style="padding:8px 10px;text-align:center;font-size:10px">Conta</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px">Saldo Inicial</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;color:#1d4ed8">Débitos</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;color:#15803d">Créditos</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;color:#7c3aed">Movimento</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px">Saldo Final</th>
-            <th style="padding:8px 10px;text-align:center;font-size:10px">DB/CR</th>
-            ${temOrc?'<th style="padding:8px 10px;text-align:right;font-size:10px">Orçamento</th><th style="padding:8px 10px;text-align:right;font-size:10px">% Real/Orc</th>':''}
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      </div>
+    <div class="section">
+      <div class="shead"><h2>Tabela de Valores</h2></div>
+      <div class="twrap"><table>
+        <thead><tr>
+          <th style="text-align:left;min-width:80px">Mês</th>
+          <th style="color:#3b82f6">${g1.label}</th>
+          <th style="color:#10b981">${g2.label}</th>
+          <th>Var. G1</th>
+          <th>Var. G2</th>
+        </tr></thead>
+        <tbody>
+          ${sl.map((d,i)=>{
+            const v1=vals1[i], v2=vals2[i];
+            const d1=i>0?v1-vals1[i-1]:null;
+            const d2=i>0?v2-vals2[i-1]:null;
+            const p1=i>0&&vals1[i-1]?((d1/Math.abs(vals1[i-1]))*100):null;
+            const p2=i>0&&vals2[i-1]?((d2/Math.abs(vals2[i-1]))*100):null;
+            return `<tr>
+              <td style="font-weight:700">${d.rot.toUpperCase()}</td>
+              <td class="cv">${fmtGrandeza(v1,g1.tipo)}</td>
+              <td class="cv">${fmtGrandeza(v2,g2.tipo)}</td>
+              <td class="cv ${d1!=null?dcls(d1):''}">${d1!=null?fP(p1):'-'}</td>
+              <td class="cv ${d2!=null?dcls(d2):''}">${d2!=null?fP(p2):'-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
     </div>`;
+
+  // Desenhar o gráfico SVG puro — eixo duplo
+  desenharGrafico(vals1, vals2, rots, g1, g2);
 }
 
-async function renderBalP2(){
-  const fp=document.getElementById('fp');
-  fp.innerHTML='<div class="loading">Carregando...</div>';
+function desenharGrafico(vals1, vals2, rots, g1, g2){
+  const container = document.getElementById('graf-container');
+  if(!container) return;
+  const W = container.clientWidth || 800;
+  const H = 320;
+  const PAD = {top:20, right:80, bottom:50, left:80};
+  const w = W - PAD.left - PAD.right;
+  const h = H - PAD.top - PAD.bottom;
+  const n = rots.length;
 
-  const todos=await Promise.all(ARQ_BAL.tejotao.map(a=>loadBAL(a)));
-  const disponiveis=todos.filter(Boolean);
-  if(!disponiveis.length){ fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>'; return; }
+  // Escalas
+  const min1=Math.min(...vals1), max1=Math.max(...vals1);
+  const min2=Math.min(...vals2), max2=Math.max(...vals2);
+  const range1=max1-min1||1, range2=max2-min2||1;
 
-  if(!balState.mes) balState.mes=disponiveis[disponiveis.length-1].rot;
-  const bal=disponiveis.find(d=>d.rot===balState.mes)||disponiveis[disponiveis.length-1];
-  const mesOpts=disponiveis.map(d=>`<option value="${d.rot}" ${d.rot===balState.mes?'selected':''}>${d.rot}</option>`).join('');
+  const xP = i => PAD.left + (i/(n-1||1))*w;
+  const yP1 = v => PAD.top + h - ((v-min1)/range1)*h;
+  const yP2 = v => PAD.top + h - ((v-min2)/range2)*h;
 
-  // Contas sintéticas nível 2 e 3 para comparativo
-  const sinteticas=bal.contas.filter(c=>c.nivel<=3&&c.tipo==='TT');
+  // Linhas do gráfico 1
+  const pts1 = vals1.map((v,i)=>`${xP(i).toFixed(1)},${yP1(v).toFixed(1)}`).join(' ');
+  // Linhas do gráfico 2
+  const pts2 = vals2.map((v,i)=>`${xP(i).toFixed(1)},${yP2(v).toFixed(1)}`).join(' ');
 
-  const cols=UNIDADES_BAL.map(u=>`<th style="text-align:right;padding:8px 10px;font-size:11px">${u.label}</th>`).join('');
-  const linhas=sinteticas.map(c=>{
-    const vals=UNIDADES_BAL.map(u=>{
-      const sf=c[u.id].sf;
-      return `<td style="text-align:right;padding:6px 10px;font-size:12px;font-weight:${c.nivel<=2?'700':'400'}">${fM(sf)}</td>`;
-    }).join('');
-    const bg=c.nivel===1?'#f0f5ff':c.nivel===2?'#f8fafc':'white';
-    const fs=c.nivel===1?'14px':c.nivel===2?'13px':'12px';
-    return `<tr style="background:${bg}">
-      <td style="padding:6px 10px 6px ${(c.nivel-1)*12+10}px;font-size:${fs};font-weight:${c.nivel<=2?700:400}">${c.classif}</td>
-      <td style="padding:6px 10px;font-size:${fs};font-weight:${c.nivel<=2?700:400};min-width:220px">${c.descricao}</td>
-      ${vals}
-    </tr>`;
-  }).join('');
+  // Grid horizontal (5 linhas)
+  let grid='';
+  for(let i=0;i<=4;i++){
+    const y=PAD.top+(h/4)*i;
+    grid+=`<line x1="${PAD.left}" y1="${y.toFixed(0)}" x2="${PAD.left+w}" y2="${y.toFixed(0)}" stroke="#f1f5f9" stroke-width="1"/>`;
+    const v1=max1-(range1/4)*i;
+    const v2=max2-(range2/4)*i;
+    grid+=`<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#6b7280">${fmtGrandeza(v1,g1.tipo)}</text>`;
+    grid+=`<text x="${PAD.left+w+6}" y="${y+4}" text-anchor="start" font-size="10" fill="#10b981">${fmtGrandeza(v2,g2.tipo)}</text>`;
+  }
 
-  fp.innerHTML=`
-    <div class="toolbar">
-      <div class="tg"><label>Mês</label>
-        <select onchange="balState.mes=this.value;renderBalP2()">${mesOpts}</select></div>
-    </div>
-    <div class="section" style="padding:0">
-      <div class="shead" style="padding:12px 14px 0"><h2>Comparativo por Unidade — ${bal.rot}</h2></div>
-      <div class="twrap" style="max-height:640px">
-        <table style="width:100%">
-          <thead><tr style="position:sticky;top:0;z-index:3;background:#f8fafc">
-            <th style="text-align:left;padding:8px 10px;font-size:10px">Classif.</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;min-width:220px">Descrição</th>
-            ${cols}
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      </div>
-    </div>`;
+  // Labels eixo X
+  let labelsX='';
+  const step = Math.max(1, Math.floor(n/8));
+  for(let i=0;i<n;i+=step){
+    labelsX+=`<text x="${xP(i).toFixed(1)}" y="${PAD.top+h+18}" text-anchor="middle" font-size="10" fill="#6b7280">${rots[i]}</text>`;
+  }
+  // Último sempre aparece
+  if((n-1)%step!==0){
+    labelsX+=`<text x="${xP(n-1).toFixed(1)}" y="${PAD.top+h+18}" text-anchor="middle" font-size="10" fill="#6b7280">${rots[n-1]}</text>`;
+  }
+
+  // Pontos interativos
+  const pontos1 = vals1.map((v,i)=>`<circle cx="${xP(i).toFixed(1)}" cy="${yP1(v).toFixed(1)}" r="4" fill="#3b82f6" stroke="white" stroke-width="1.5">
+    <title>${rots[i]}: ${fmtGrandeza(v,g1.tipo)}</title></circle>`).join('');
+  const pontos2 = vals2.map((v,i)=>`<circle cx="${xP(i).toFixed(1)}" cy="${yP2(v).toFixed(1)}" r="4" fill="#10b981" stroke="white" stroke-width="1.5">
+    <title>${rots[i]}: ${fmtGrandeza(v,g2.tipo)}</title></circle>`).join('');
+
+  // Área sob a linha 1 (suave)
+  const areaPath1=`M ${xP(0)},${PAD.top+h} L ${vals1.map((v,i)=>`${xP(i).toFixed(1)},${yP1(v).toFixed(1)}`).join(' L ')} L ${xP(n-1)},${PAD.top+h} Z`;
+
+  container.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="overflow:visible">
+    <!-- Grid -->
+    ${grid}
+    <!-- Eixos -->
+    <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top+h}" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="${PAD.left+w}" y1="${PAD.top}" x2="${PAD.left+w}" y2="${PAD.top+h}" stroke="#10b981" stroke-width="1" stroke-dasharray="4,2"/>
+    <line x1="${PAD.left}" y1="${PAD.top+h}" x2="${PAD.left+w}" y2="${PAD.top+h}" stroke="#e5e7eb" stroke-width="1"/>
+    <!-- Área G1 -->
+    <path d="${areaPath1}" fill="#3b82f6" opacity="0.06"/>
+    <!-- Labels X -->
+    ${labelsX}
+    <!-- Linha G2 (tracejada) -->
+    <polyline points="${pts2}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6,3" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Linha G1 (sólida) -->
+    <polyline points="${pts1}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Pontos G2 -->
+    ${pontos2}
+    <!-- Pontos G1 -->
+    ${pontos1}
+    <!-- Label eixo esquerdo -->
+    <text x="${PAD.left-50}" y="${PAD.top+h/2}" text-anchor="middle" font-size="10" fill="#3b82f6" transform="rotate(-90,${PAD.left-50},${PAD.top+h/2})">${g1.tipo==='R$'?'R$':g1.tipo==='%'?'%':'Dias'}</text>
+    <!-- Label eixo direito -->
+    <text x="${PAD.left+w+55}" y="${PAD.top+h/2}" text-anchor="middle" font-size="10" fill="#10b981" transform="rotate(90,${PAD.left+w+55},${PAD.top+h/2})">${g2.tipo==='R$'?'R$':g2.tipo==='%'?'%':'Dias'}</text>
+  </svg>`;
 }
-// Expõe todas as funções usadas em onclick para o escopo global
-// Necessário para funcionar corretamente no GitHub Pages
-window.setPag=function(p){S.pag=p;render();}
-window.setModulo=function(mod,btn){
-  S.modulo=mod;S.pag=1;S.ini=null;S.fim=null;
-  S.p2aS=null;S.p2aE=null;S.p2bS=null;S.p2bE=null;
-  document.querySelectorAll('.controls .btn').forEach(b=>{if(['Financeiro','DRE','Balanço Patrimonial'].some(t=>b.textContent.includes(t)))b.classList.remove('active');});
-  btn.classList.add('active');
-  render();
-}
-window.setEmp=function(e,btn){
-  S.emp=e;S.ini=null;S.fim=null;S.cache={};
-  S.p2aS=null;S.p2aE=null;S.p2bS=null;S.p2bE=null;
-  document.querySelectorAll('#btnEmp .btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');render();
-}
-window.setQ=function(n,total){
-  let rots;
-  if(S.modulo==='dre') rots=ARQ_DRE.operacional.map(a=>rotDRE(a));
-  else if(S.modulo==='bp') rots=ARQ_BP.operacional.map(a=>rotBP(a));
-  else if(S.modulo==='intel') rots=ARQ.operacional.map(a=>rot(a));
-  else{ const lista=S.emp==='consolidado'?ARQ.operacional:(ARQ[S.emp]||[]); rots=lista.map(a=>rot(a)); }
-  if(n===0||n>=rots.length){S.ini=rots[0];S.fim=rots[rots.length-1];}
-  else{S.ini=rots[rots.length-n];S.fim=rots[rots.length-1];}
-  if(S.modulo==='dre')renderDREP1();
-  else if(S.modulo==='bp')renderBPP1();
-  else if(S.modulo==='intel')renderIntelP2();
-  else renderP1();
-}
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('hinfo').textContent=`v2.0 · ${new Date().toLocaleDateString('pt-BR')}`;
-  render();
-});
 
-</script>
-</body>
-</html>
+>
