@@ -139,9 +139,9 @@ tbody tr.rs td.ctot{background:#e4edff}
 // Sempre usar raw.githubusercontent — funciona tanto local quanto no GitHub Pages
 // O CORS não é problema pois raw.githubusercontent tem os headers corretos para leitura
 const BASE = 'https://raw.githubusercontent.com/elder901/controladoria-es/main';
-const ARQ={
-  operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv','FC abr 2026.csv'],
-  holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC abr 2026.csv','S FC jul 2026.csv']
+let ARQ={
+  operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv'],
+  holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC jul 2026.csv']
 };
 const CM={
   'Total de Vendas Recebidas':'totVendas',
@@ -729,8 +729,8 @@ function calcP2(dados,aS,aE,bS,bE){
 // ============================================================
 // MÓDULO DRE
 // ============================================================
-const ARQ_DRE={
-  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv','DREabr26.csv'],
+let ARQ_DRE={
+  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv'],
 };
 const BASE_DRE='https://raw.githubusercontent.com/elder901/controladoria-es/main';
 
@@ -1233,8 +1233,8 @@ window.calcDREP2wrap=async function(){
 // ============================================================
 // MÓDULO BALANÇO PATRIMONIAL
 // ============================================================
-const ARQ_BP={
-  operacional:['BPjan25.csv','BPfev25.csv','BPmar25.csv','BPabr25.csv','BPmai25.csv','BPjun25.csv','BPjul25.csv','BPago25.csv','BPset25.csv','BPout25.csv','BPnov25.csv','BPdez25.csv','BPjan26.csv','BPfev26.csv','BPmar26.csv','BPabr26.csv'],
+let ARQ_BP={
+  operacional:['BPjan25.csv','BPfev25.csv','BPmar25.csv','BPabr25.csv','BPmai25.csv','BPjun25.csv','BPjul25.csv','BPago25.csv','BPset25.csv','BPout25.csv','BPnov25.csv','BPdez25.csv','BPjan26.csv','BPfev26.csv','BPmar26.csv'],
 };
 
 function rotBP(arq){
@@ -1627,7 +1627,7 @@ async function renderBPP2(){
 // ============================================================
 async function getDadosIntel(){
   // Carrega os três módulos em paralelo para o mesmo conjunto de meses
-  const meses=['jan25','fev25','mar25','abr25','mai25','jun25','jul25','ago25','set25','out25','nov25','dez25','jan26','fev26','mar26','abr26'];
+  const meses=['jan25','fev25','mar25','abr25','mai25','jun25','jul25','ago25','set25','out25','nov25','dez25','jan26','fev26','mar26'];
   const fcArqs=ARQ.operacional;
   const dreArqs=ARQ_DRE.operacional;
   const bpArqs=ARQ_BP.operacional;
@@ -2086,7 +2086,7 @@ window.calcDREP2wrap=async function(){
 // ============================================================
 // MÓDULO BALANCETE
 // ============================================================
-const ARQ_BAL={
+let ARQ_BAL={
   tejotao:['bal0125.Html','bal0225.Html','bal0325.Html','bal0425.Html','bal0525.Html',
            'bal0625.Html','bal0725.Html','bal0825.Html','bal0925.Html','bal1025.Html',
            'bal1125.Html','bal1225.Html','bal0126.Html','bal0226.Html','bal0326.Html'],
@@ -2598,8 +2598,87 @@ window.presetDRE=async function(t){
   calcDREP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
 };
 
-document.addEventListener('DOMContentLoaded',()=>{
+
+// ============================================================
+// AUTO-DESCOBERTA DE ARQUIVOS via GitHub Contents API
+// Sobrescreve as listas ARQ*/fallback hardcoded.
+// Cache em localStorage por 10 min. Botão "Atualizar dados" no header.
+// ============================================================
+const GH_REPO='elder901/controladoria-es', GH_BRANCH='main';
+const GH_TTL=10*60*1000;
+const GH_MES={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+const GH_FONTES={
+  operacional:{dir:'data/operacional',rx:/^FC ([a-z]{3}) (\d{4})\.csv$/i,
+    mes:m=>GH_MES[m[1].toLowerCase()], ano:m=>+m[2], alvo:'ARQ', chave:'operacional'},
+  holding:{dir:'data/holding',rx:/^S FC ([a-z]{3}) (\d{4})\.csv$/i,
+    mes:m=>GH_MES[m[1].toLowerCase()], ano:m=>+m[2], alvo:'ARQ', chave:'holding'},
+  dre:{dir:'data/dre',rx:/^DRE([a-z]{3})(\d{2})\.csv$/i,
+    mes:m=>GH_MES[m[1].toLowerCase()], ano:m=>2000+ +m[2], alvo:'ARQ_DRE', chave:'operacional'},
+  bp:{dir:'data/bp',rx:/^BP([a-z]{3})(\d{2})\.csv$/i,
+    mes:m=>GH_MES[m[1].toLowerCase()], ano:m=>2000+ +m[2], alvo:'ARQ_BP', chave:'operacional'},
+  bal:{dir:'data/balancete',rx:/^bal(\d{2}) ?(\d{2})\.html?$/i,
+    mes:m=>+m[1], ano:m=>2000+ +m[2], alvo:'ARQ_BAL', chave:'tejotao'},
+};
+async function listarPastaGH(dir, force){
+  const ck='gh:'+dir;
+  if(!force){
+    try{const hit=JSON.parse(localStorage.getItem(ck)||'null');
+      if(hit && Date.now()-hit.t<GH_TTL) return hit.v;}catch(e){}
+  }
+  const r=await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${dir}?ref=${GH_BRANCH}`);
+  if(!r.ok) throw new Error(`GitHub API ${r.status} em ${dir}`);
+  const v=await r.json();
+  try{localStorage.setItem(ck,JSON.stringify({t:Date.now(),v}));}catch(e){}
+  return v;
+}
+async function descobrirARQ(force){
+  const alvos={ARQ, ARQ_DRE, ARQ_BP, ARQ_BAL};
+  let okGeral=true;
+  for(const [k,f] of Object.entries(GH_FONTES)){
+    try{
+      const arquivos=await listarPastaGH(f.dir, force);
+      const lista=arquivos
+        .map(a=>{const m=a.name.match(f.rx); if(!m){console.warn('[GH] ignorado:',a.name);return null;}
+          return {nome:a.name, ano:f.ano(m), mes:f.mes(m)};})
+        .filter(Boolean)
+        .sort((a,b)=>a.ano-b.ano||a.mes-b.mes)
+        .map(x=>x.nome);
+      if(lista.length){
+        alvos[f.alvo][f.chave]=lista;
+        console.log(`[GH] ${k}: ${lista.length} arquivos · último=${lista[lista.length-1]}`);
+      } else { console.warn(`[GH] ${k}: 0 arquivos no padrão — mantendo fallback`); okGeral=false; }
+    } catch(e){ console.error(`[GH] ${k} falhou:`,e.message,'— mantendo fallback'); okGeral=false; }
+  }
+  // limpa cache de dados se a lista mudou (força recarregar CSVs)
+  if(force) S.cache={};
+  return okGeral;
+}
+window.atualizarDados=async function(){
+  // limpa cache do GitHub API
+  Object.keys(localStorage).filter(k=>k.startsWith('gh:')).forEach(k=>localStorage.removeItem(k));
+  S.cache={};
+  const btn=document.getElementById('btnAtualizar');
+  if(btn){btn.textContent='Atualizando...';btn.disabled=true;}
+  await descobrirARQ(true);
+  if(btn){btn.textContent='↻ Atualizar dados';btn.disabled=false;}
+  if(typeof render==='function') render();
+};
+function injetarBotaoAtualizar(){
+  const hdr=document.querySelector('.header');
+  if(!hdr || document.getElementById('btnAtualizar')) return;
+  const b=document.createElement('button');
+  b.id='btnAtualizar'; b.className='btn'; b.textContent='↻ Atualizar dados';
+  b.title='Re-lê as pastas data/* no GitHub e descarta cache';
+  b.style.cssText='margin-left:auto';
+  b.onclick=window.atualizarDados;
+  hdr.appendChild(b);
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('hinfo').textContent='v2.0 · '+new Date().toLocaleDateString('pt-BR');
+  injetarBotaoAtualizar();
+  try { await descobrirARQ(false); }
+  catch(e){ console.error('[GH] auto-descoberta falhou globalmente — usando listas hardcoded:', e); }
   render();
 });
 </script>
