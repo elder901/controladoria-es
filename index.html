@@ -317,8 +317,87 @@ async function renderP1(){
   // Fallback: se não encontrar o mesmo mês do ano anterior, usa o mês anterior
   const pen=mesmoPeriodoAnoAnt||(sl.length>1?sl[sl.length-2]:null);
   const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
-  fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+buildTabela(sl,tot);
+  fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+'<div id="bancos-box"></div>'+buildTabela(sl,tot);
   buildSparks(dados,sl);
+  renderBancosBox(ult.rot);
+}
+
+// ============================================================
+// Saldo por Banco — usa Balancete (contas 1.1.01.03.*)
+// ============================================================
+async function renderBancosBox(rotAlvo){
+  const box=document.getElementById('bancos-box');
+  if(!box)return;
+  if(S.emp==='holding'){box.innerHTML='';return;} // balancete só de Tejotão
+  box.innerHTML='<div class="section"><div class="loading" style="padding:14px">Carregando saldo por banco...</div></div>';
+  try{
+    // tenta encontrar balancete do mesmo mês; senão usa o mais recente disponível
+    const todos=await Promise.all(ARQ_BAL.tejotao.map(a=>loadBAL(a)));
+    const disp=todos.filter(Boolean);
+    if(!disp.length){box.innerHTML='';return;}
+    const bal=disp.find(d=>d.rot===rotAlvo)||disp[disp.length-1];
+    const usouFallback=bal.rot!==rotAlvo;
+    // Contas que começam com 1.1.01.03 = bancos
+    const bancos=bal.contas.filter(c=>c.classif.startsWith('1.1.01.03.')&&c.tipo!=='TT'&&Math.abs(c.total.sf)>0.005);
+    if(!bancos.length){box.innerHTML='';return;}
+    // Sintético do grupo (1.1.01.03) para conferência
+    const sint=bal.contas.find(c=>c.classif==='1.1.01.03'&&c.tipo==='TT');
+    const totalBancos=bancos.reduce((s,c)=>s+(c.total.sf||0),0);
+    const totalSint=sint?sint.total.sf:totalBancos;
+    const diff=totalBancos-totalSint;
+    const ok=Math.abs(diff)<1;
+    bancos.sort((a,b)=>b.total.sf-a.total.sf);
+    const totAbs=bancos.reduce((s,c)=>s+Math.abs(c.total.sf),0)||1;
+    const cor=v=>v<0?'var(--bad)':'#1d4ed8';
+    const linhas=bancos.map(b=>{
+      const v=b.total.sf;
+      const pct=Math.abs(v)/totAbs*100;
+      return `<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:8px 10px;font-size:11px;color:var(--muted);font-family:monospace">${b.classif}</td>
+        <td style="padding:8px 10px;font-size:12px;font-weight:600">${b.descricao||b.conta}</td>
+        <td style="padding:8px 10px">
+          <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden">
+            <div style="height:6px;width:${pct.toFixed(1)}%;background:${cor(v)};border-radius:3px"></div>
+          </div>
+        </td>
+        <td style="padding:8px 10px;font-size:13px;font-weight:700;text-align:right;color:${cor(v)};white-space:nowrap">${fM(v)}</td>
+        <td style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:right">${pct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    const badge=ok
+      ? `<span style="font-size:11px;font-weight:700;color:var(--good);background:#dcfce7;padding:3px 8px;border-radius:6px">✓ bate com sintético</span>`
+      : `<span style="font-size:11px;font-weight:700;color:var(--bad);background:#fef2f2;padding:3px 8px;border-radius:6px">⚠ diferença ${fM(diff)}</span>`;
+    const aviso=usouFallback
+      ? `<span style="font-size:11px;color:var(--muted)">balancete de ${rotAlvo} não disponível — exibindo ${bal.rot}</span>`
+      : `<span style="font-size:11px;color:var(--muted)">balancete de ${bal.rot}</span>`;
+    box.innerHTML=`<div class="section">
+      <div class="shead">
+        <h2>Saldo por Banco — Caixa e Equivalentes</h2>
+        <div style="display:flex;gap:10px;align-items:center">${aviso} ${badge}</div>
+      </div>
+      <div class="twrap" style="max-height:380px">
+        <table style="width:100%">
+          <thead><tr style="background:#f8fafc;position:sticky;top:0;z-index:2">
+            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569">Classif.</th>
+            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569;min-width:200px">Banco</th>
+            <th style="padding:8px 10px;font-size:10px;color:#475569;min-width:140px">Distribuição</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">% do total</th>
+          </tr></thead>
+          <tbody>${linhas}
+            <tr style="background:#eef2ff;font-weight:800">
+              <td colspan="3" style="padding:10px;font-size:12px">TOTAL DOS BANCOS (${bancos.length} contas)</td>
+              <td style="padding:10px;text-align:right;font-size:13px;color:${cor(totalBancos)}">${fM(totalBancos)}</td>
+              <td style="padding:10px;text-align:right;font-size:11px;color:var(--muted)">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }catch(e){
+    console.error('Erro renderBancosBox',e);
+    box.innerHTML='';
+  }
 }
 function buildToolbar1(todos,sl){
   const opts=r=>todos.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
@@ -1670,9 +1749,12 @@ async function renderIntel(){
     <div class="mtabs">
       <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Página 1 · Análise Mensal</button>
       <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Página 2 · Evolução do Período</button>
+      <button class="mtab ${S.pag===3?'active':''}" onclick="setPag(3)">Página 3 · Comparativo Dinâmico</button>
     </div>
     <div id="fp"><div class="loading">Cruzando FC + DRE + BP...</div></div>`;
-  if(S.pag===1)renderIntelP1();else renderIntelP2();
+  if(S.pag===1)renderIntelP1();
+  else if(S.pag===3)renderIntelP3();
+  else renderIntelP2();
 }
 
 async function renderIntelP1(){
@@ -2081,6 +2163,231 @@ window.calcDREP2wrap=async function(){
   const dados=await getDadosDRE();
   calcDREP2(dados,S.p2aS,S.p2aE,S.p2bS,S.p2bE);
 };
+
+// ============================================================
+// INTELIGÊNCIA — Página 3: Comparativo dinâmico (gráfico de linha)
+// ============================================================
+let intelP3 = {
+  empresa:'tejotao',          // tejotao | sena | consolidado
+  grandezas:['vlc'],          // até 3 grandezas
+  ini:null, fim:null,
+};
+const GRANDEZAS_P3 = [
+  {id:'totVendas', label:'Faturamento (Total Vendas)',  fmt:'m', cor:'#1d4ed8'},
+  {id:'vlc',       label:'Vendas Líquidas em Caixa',    fmt:'m', cor:'#0ea5e9'},
+  {id:'margemV',   label:'Margem de Venda (R$)',        fmt:'m', cor:'#10b981'},
+  {id:'pctMargem', label:'% Margem (margem/VLC)',       fmt:'p', cor:'#15803d'},
+  {id:'lucroBruto',label:'Lucro Bruto',                 fmt:'m', cor:'#8b5cf6'},
+  {id:'lucroOp',   label:'Lucro das Operações',         fmt:'m', cor:'#6366f1'},
+  {id:'lucroLiq',  label:'Lucro Líquido',               fmt:'m', cor:'#f59e0b'},
+  {id:'varCaixa',  label:'Resultado de Caixa (FC)',     fmt:'m', cor:'#06b6d4'},
+  {id:'totCustos', label:'Total Custos Operacionais',   fmt:'m', cor:'#ef4444'},
+  {id:'despPess',  label:'Folha (Desp. Pessoal)',       fmt:'m', cor:'#db2777'},
+];
+function valorGrandeza(d, gid){
+  if(!d) return null;
+  if(gid==='pctMargem'){
+    const base=d.vlc||0; if(!base) return null;
+    return ((d.margemV||0)/base)*100;
+  }
+  return d[gid] ?? 0;
+}
+async function getDadosCompP3(empresa){
+  // FC para todas as empresas (existe operacional + holding)
+  if(empresa==='tejotao'){
+    const d=await Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a)));
+    return d.filter(Boolean);
+  }
+  if(empresa==='sena'){
+    const d=await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
+    return d.filter(Boolean);
+  }
+  // consolidado: combinar (intersecção dos meses presentes nos dois)
+  const [op,hd]=await Promise.all([
+    Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a))),
+    Promise.all(ARQ.holding.map(a=>loadCSV('holding',a))),
+  ]);
+  return combinar(op.filter(Boolean), hd.filter(Boolean));
+}
+async function renderIntelP3(){
+  const fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Carregando série histórica...</div>';
+  const dados=await getDadosCompP3(intelP3.empresa);
+  if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados para a empresa selecionada.</div>';return;}
+  if(!intelP3.ini || !dados.find(d=>d.rot===intelP3.ini)) intelP3.ini=dados[0].rot;
+  if(!intelP3.fim || !dados.find(d=>d.rot===intelP3.fim)) intelP3.fim=dados[dados.length-1].rot;
+  if(!intelP3.grandezas.length) intelP3.grandezas=['vlc'];
+
+  const iI=dados.findIndex(d=>d.rot===intelP3.ini);
+  const iF=dados.findIndex(d=>d.rot===intelP3.fim);
+  const sl=dados.slice(iI>=0?iI:0,iF>=0?iF+1:dados.length);
+
+  const optsMes=r=>dados.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
+
+  const checkboxes=GRANDEZAS_P3.map(g=>{
+    const chk=intelP3.grandezas.includes(g.id);
+    const dis=!chk && intelP3.grandezas.length>=3;
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:${chk?'#eef2ff':'#fff'};cursor:${dis?'not-allowed':'pointer'};opacity:${dis?0.4:1}">
+      <input type="checkbox" ${chk?'checked':''} ${dis?'disabled':''} onchange="toggleGrandezaP3('${g.id}')" style="cursor:${dis?'not-allowed':'pointer'}"/>
+      <span style="display:inline-block;width:10px;height:10px;background:${g.cor};border-radius:2px"></span>
+      ${g.label}
+    </label>`;
+  }).join('');
+
+  const toolbar=`<div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <div class="tg"><label>Empresa</label>
+        <div class="btngrp">
+          <button class="btn ${intelP3.empresa==='tejotao'?'active':''}" onclick="setEmpresaP3('tejotao')">Tejotão</button>
+          <button class="btn ${intelP3.empresa==='sena'?'active':''}" onclick="setEmpresaP3('sena')">Sena</button>
+          <button class="btn ${intelP3.empresa==='consolidado'?'active':''}" onclick="setEmpresaP3('consolidado')">Consolidado</button>
+        </div>
+      </div>
+      <div class="tg"><label>Início</label><select onchange="intelP3.ini=this.value;renderIntelP3()">${optsMes(intelP3.ini)}</select></div>
+      <div class="tg"><label>Fim</label><select onchange="intelP3.fim=this.value;renderIntelP3()">${optsMes(intelP3.fim)}</select></div>
+      <div style="font-size:11px;color:var(--muted);align-self:flex-end;padding-bottom:6px">${sl.length} mês(es) · selecione até 3 grandezas</div>
+    </div>
+    <div>
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Grandezas (até 3)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${checkboxes}</div>
+    </div>
+  </div>`;
+
+  // Construir séries
+  const series=intelP3.grandezas.map(gid=>{
+    const meta=GRANDEZAS_P3.find(g=>g.id===gid);
+    const valores=sl.map(d=>valorGrandeza(d,gid));
+    return {gid, label:meta.label, cor:meta.cor, fmt:meta.fmt, valores};
+  });
+
+  const chartHTML=buildChartLinhaP3(sl, series);
+
+  // KPIs por grandeza (último valor + variação total no período)
+  const kpis=series.map(s=>{
+    const v0=s.valores[0]??0, vN=s.valores[s.valores.length-1]??0;
+    const dAbs=vN-v0; const dPct=v0?(dAbs/Math.abs(v0))*100:null;
+    const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):fM;
+    const corDelta=dAbs>=0?'var(--good)':'var(--bad)';
+    return `<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${s.cor}">
+      <h3 style="color:${s.cor}">${s.label}</h3>
+      <div class="kval" style="font-size:18px">${fmtV(vN)}</div>
+      <div class="kmeta">
+        <span style="font-size:11px;color:var(--muted)">${sl[sl.length-1].rot}</span><br>
+        <span style="font-size:11px;color:var(--muted)">vs ${sl[0].rot}:</span>
+        <span style="color:${corDelta};font-weight:700">${s.fmt==='p'?fPS(dAbs,1)+'pp':fM(dAbs)}</span>
+        ${dPct!=null?` · <span style="color:${corDelta};font-weight:700">${fP(dPct)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  fp.innerHTML=`${toolbar}
+    <div class="cards" style="grid-template-columns:repeat(${Math.min(series.length,3)},1fr);margin-top:10px">${kpis}</div>
+    <div class="section">
+      <div class="shead"><h2>Comparativo dinâmico</h2>
+        <span class="legend">${sl[0].rot} → ${sl[sl.length-1].rot}</span>
+      </div>
+      ${chartHTML}
+    </div>`;
+}
+window.toggleGrandezaP3=function(gid){
+  const i=intelP3.grandezas.indexOf(gid);
+  if(i>=0) intelP3.grandezas.splice(i,1);
+  else if(intelP3.grandezas.length<3) intelP3.grandezas.push(gid);
+  renderIntelP3();
+};
+window.setEmpresaP3=function(emp){intelP3.empresa=emp;renderIntelP3();};
+
+function buildChartLinhaP3(sl, series){
+  if(!series.length) return '<div class="loading">Selecione ao menos uma grandeza.</div>';
+  const W=1100, H=380, padL=70, padR=20, padT=20, padB=50;
+  const innerW=W-padL-padR, innerH=H-padT-padB;
+  const n=sl.length;
+  // Para múltiplas grandezas mistas (R$ e %), normalizamos cada série para [0,1] do próprio range,
+  // mas se todas forem do mesmo formato, compartilham eixo.
+  const fmts=[...new Set(series.map(s=>s.fmt))];
+  const compartilhaEixo = fmts.length===1;
+  let yMin, yMax;
+  if(compartilhaEixo){
+    const all=series.flatMap(s=>s.valores).filter(v=>v!=null&&isFinite(v));
+    yMin=Math.min(0,...all); yMax=Math.max(...all);
+    if(yMin===yMax){yMin-=1;yMax+=1;}
+  }
+  const xPos=i=> n<=1 ? padL+innerW/2 : padL + (i/(n-1))*innerW;
+  const yPosShared=v=>{
+    const r=yMax-yMin||1;
+    return padT + innerH - ((v-yMin)/r)*innerH;
+  };
+  const yPosOwn=(v,s)=>{
+    const vals=s.valores.filter(x=>x!=null&&isFinite(x));
+    let mn=Math.min(0,...vals), mx=Math.max(...vals);
+    if(mn===mx){mn-=1;mx+=1;}
+    const r=mx-mn||1;
+    return padT + innerH - ((v-mn)/r)*innerH;
+  };
+  const yPos=(v,s)=>compartilhaEixo?yPosShared(v):yPosOwn(v,s);
+
+  // Grid + labels Y (apenas se eixo compartilhado)
+  let gridY='';
+  if(compartilhaEixo){
+    const fmtTick=fmts[0]==='p'?(x=>x.toFixed(0)+'%'):(x=>{
+      const abs=Math.abs(x);
+      if(abs>=1e6) return 'R$ '+(x/1e6).toFixed(1)+'M';
+      if(abs>=1e3) return 'R$ '+(x/1e3).toFixed(0)+'k';
+      return 'R$ '+x.toFixed(0);
+    });
+    const ticks=5;
+    for(let t=0;t<=ticks;t++){
+      const v=yMin+(yMax-yMin)*(t/ticks);
+      const y=yPosShared(v);
+      gridY+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>
+        <text x="${padL-8}" y="${y+4}" font-size="10" fill="#6b7280" text-anchor="end">${fmtTick(v)}</text>`;
+    }
+  }else{
+    gridY+=`<text x="${padL}" y="${padT+10}" font-size="10" fill="#6b7280">eixo Y normalizado por série (formatos mistos)</text>`;
+    // linha do zero (visualmente no meio)
+    for(let t=0;t<=4;t++){
+      const y=padT+(innerH/4)*t;
+      gridY+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }
+  }
+
+  // Eixo X (datas)
+  let labelsX='';
+  const stepX=Math.max(1,Math.ceil(n/12));
+  for(let i=0;i<n;i+=stepX){
+    const x=xPos(i);
+    labelsX+=`<text x="${x}" y="${H-padB+18}" font-size="10" fill="#6b7280" text-anchor="middle">${sl[i].rot}</text>
+      <line x1="${x}" x2="${x}" y1="${padT}" y2="${H-padB}" stroke="#f8fafc" stroke-width="1"/>`;
+  }
+
+  // Linhas + pontos
+  let plot='';
+  series.forEach(s=>{
+    const pts=s.valores.map((v,i)=>v==null||!isFinite(v)?null:`${xPos(i)},${yPos(v,s).toFixed(1)}`).filter(Boolean).join(' ');
+    plot+=`<polyline points="${pts}" fill="none" stroke="${s.cor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.valores.forEach((v,i)=>{
+      if(v==null||!isFinite(v))return;
+      const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):fM;
+      plot+=`<circle cx="${xPos(i)}" cy="${yPos(v,s).toFixed(1)}" r="3.5" fill="#fff" stroke="${s.cor}" stroke-width="2">
+        <title>${s.label} · ${sl[i].rot}: ${fmtV(v)}</title></circle>`;
+    });
+  });
+
+  // Legenda
+  const legenda=series.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151">
+    <span style="width:14px;height:3px;background:${s.cor};display:inline-block;border-radius:2px"></span>${s.label}
+  </span>`).join('');
+
+  return `<div style="width:100%;overflow-x:auto">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:600px;height:auto;display:block">
+      <rect x="${padL}" y="${padT}" width="${innerW}" height="${innerH}" fill="#fafafa" stroke="#e5e7eb"/>
+      ${gridY}
+      ${labelsX}
+      ${plot}
+    </svg>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:8px;padding:8px">${legenda}</div>
+  </div>`;
+}
 
 // ============================================================
 // ============================================================
