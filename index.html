@@ -249,6 +249,9 @@ function parseCSV(txt,arq){
     const l=lines[+i];if(!l)continue;
     const p=l.split(';');if(p.length>3)d[c]=parseMoeda(p[3]);
   }
+  // Saldo Inicial e Final do mês — coluna J (índice 9), linhas 5 e 6 (0-index 4 e 5)
+  if(lines[4]){const p=lines[4].split(';');if(p.length>9)d.saldoIni=parseMoeda(p[9]);}
+  if(lines[5]){const p=lines[5].split(';');if(p.length>9)d.saldoFim=parseMoeda(p[9]);}
   return d;
 }
 function parseMoeda(t){if(!t||!t.trim())return 0;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;}
@@ -319,16 +322,87 @@ async function renderP1(){
   const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
   fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+'<div id="bancos-box"></div>'+buildTabela(sl,tot);
   buildSparks(dados,sl);
-  renderBancosBox(ult.rot, ult.varCaixa||0);
+  renderBancosBox(ult.rot, ult.varCaixa||0, sl, tot);
 }
 
 // ============================================================
 // Disponibilidades — usa Balancete (contas 1.1.01.*: caixa + bancos + aplicações)
 // ============================================================
-async function renderBancosBox(rotAlvo, varCaixaCSV){
+async function renderBancosBox(rotAlvo, varCaixaCSV, sl, tot){
   const box=document.getElementById('bancos-box');
   if(!box)return;
-  if(S.emp==='holding'){box.innerHTML='';return;} // balancete só de Tejotão
+  // Holding (Sena) não tem balancete — renderiza versão simplificada apenas com FC
+  if(S.emp==='holding'){
+    const corV=v=>v>=0?'var(--good)':'var(--bad)';
+    const sg=v=>v>=0?'+':'';
+    const acum=tot?(tot.varCaixa||0):(varCaixaCSV||0);
+    const meses=sl?sl.length:1;
+    const media=acum/(meses||1);
+    const ult=sl&&sl.length?sl[sl.length-1]:null;
+    const pen=sl&&sl.length>1?sl[sl.length-2]:null;
+    const delta=ult&&pen?(ult.varCaixa||0)-(pen.varCaixa||0):0;
+    // Saldo Inicial = do primeiro mês do período; Saldo Final = do último mês
+    const prim=sl&&sl.length?sl[0]:null;
+    const saldoIniPer=prim?(prim.saldoIni||0):0;
+    const saldoFimPer=ult?(ult.saldoFim||0):0;
+    const variacaoSaldo=saldoFimPer-saldoIniPer;
+    const diffFC=variacaoSaldo-acum;
+    const okFC=Math.abs(diffFC)<1;
+    const badgeFC=okFC
+      ? `<span style="font-size:11px;font-weight:700;color:var(--good);background:#dcfce7;padding:3px 8px;border-radius:6px">✓ bate com Variação de Caixa</span>`
+      : `<span style="font-size:11px;font-weight:700;color:var(--bad);background:#fef2f2;padding:3px 8px;border-radius:6px">⚠ diverge em ${fM(diffFC)}</span>`;
+    const linhasMeses=(sl||[]).slice().reverse().slice(0,12).map(d=>{
+      const v=d.varCaixa||0;
+      const si=d.saldoIni||0, sf=d.saldoFim||0;
+      return `<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:8px 10px;font-size:12px;font-weight:600">${d.rot}</td>
+        <td style="padding:8px 10px;font-size:12px;color:var(--muted)">${d.periodo||''}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right;color:var(--muted);white-space:nowrap">${fM(si)}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:600;white-space:nowrap">${fM(sf)}</td>
+        <td style="padding:8px 10px;font-size:13px;font-weight:700;text-align:right;color:${corV(v)};white-space:nowrap">${sg(v)}${fM(v)}</td>
+      </tr>`;
+    }).join('');
+    box.innerHTML=`<div class="section">
+      <div class="shead">
+        <h2>Disponibilidades — Holding (Sena)</h2>
+        <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--muted)">Saldos do FC · holding não possui balancete analítico</span> ${badgeFC}</div>
+      </div>
+      <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+        <div class="kcard"><h3>Saldo Inicial (${prim?prim.rot:'—'})</h3>
+          <div class="kval ${saldoIniPer<0?'bad':''}">${fM(saldoIniPer)}</div>
+          <div class="kmeta"><span style="font-size:11px;color:var(--muted)">início do período</span></div></div>
+        <div class="kcard"><h3>Saldo Final (${ult?ult.rot:'—'})</h3>
+          <div class="kval ${saldoFimPer<0?'bad':''}">${fM(saldoFimPer)}</div>
+          <div class="kmeta"><span style="font-size:11px;color:var(--muted)">fim do período</span></div></div>
+        <div class="kcard"><h3>Variação no Período (Saldos)</h3>
+          <div class="kval" style="color:${corV(variacaoSaldo)};font-size:20px">${sg(variacaoSaldo)}${fM(variacaoSaldo)}</div>
+          <div class="kmeta"><span style="font-size:11px;color:var(--muted)">Saldo Final − Saldo Inicial</span></div></div>
+        <div class="kcard"><h3>Variação de Caixa (FC) acum.</h3>
+          <div class="kval" style="color:${corV(acum)};font-size:20px">${sg(acum)}${fM(acum)}</div>
+          <div class="kmeta"><span style="font-size:11px;color:var(--muted)">média mês: ${sg(media)}${fM(media)}</span></div></div>
+      </div>
+      <div class="twrap" style="max-height:380px">
+        <table style="width:100%">
+          <thead><tr style="background:#f8fafc;position:sticky;top:0;z-index:2">
+            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569">Mês</th>
+            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569">Período</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo Inicial</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo Final</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Variação de Caixa (FC)</th>
+          </tr></thead>
+          <tbody>${linhasMeses}
+            <tr style="background:#eef2ff;font-weight:800">
+              <td colspan="2" style="padding:10px;font-size:12px">PERÍODO (${meses} ${meses===1?'mês':'meses'})</td>
+              <td style="padding:10px;text-align:right;font-size:12px">${fM(saldoIniPer)}</td>
+              <td style="padding:10px;text-align:right;font-size:12px">${fM(saldoFimPer)}</td>
+              <td style="padding:10px;text-align:right;font-size:13px;color:${corV(acum)}">${sg(acum)}${fM(acum)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+    return;
+  }
   box.innerHTML='<div class="section"><div class="loading" style="padding:14px">Carregando disponibilidades...</div></div>';
   try{
     // tenta encontrar balancete do mesmo mês; senão usa o mais recente disponível
@@ -349,7 +423,20 @@ async function renderBancosBox(rotAlvo, varCaixaCSV){
     const sint=bal.contas.find(c=>c.classif==='1.1.01'&&c.tipo==='TT');
     const totalSf=disponiveis.reduce((s,c)=>s+(c.total.sf||0),0);
     const totalSi=disponiveis.reduce((s,c)=>s+(c.total.si||0),0);
-    const variacao=totalSf-totalSi;
+    // Consolidado: somar saldos da Sena (FC) ao Tejotão (Balancete)
+    let senaSi=0, senaSf=0, senaInfo='';
+    if(S.emp==='consolidado' && sl && sl.length){
+      const rotPrim=sl[0].rot, rotUlt=sl[sl.length-1].rot;
+      const senaAll=await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
+      const senaPrim=senaAll.find(d=>d&&d.rot===rotPrim);
+      const senaUlt =senaAll.find(d=>d&&d.rot===rotUlt);
+      senaSi=senaPrim?(senaPrim.saldoIni||0):0;
+      senaSf=senaUlt ?(senaUlt.saldoFim ||0):0;
+      senaInfo=` + Sena (FC): ini ${fM(senaSi)} / fim ${fM(senaSf)}`;
+    }
+    const totalSiCons=totalSi+senaSi;
+    const totalSfCons=totalSf+senaSf;
+    const variacao=totalSfCons-totalSiCons;
     const totalSint=sint?sint.total.sf:totalSf;
     const diff=totalSf-totalSint;
     const ok=Math.abs(diff)<1;
@@ -413,12 +500,12 @@ async function renderBancosBox(rotAlvo, varCaixaCSV){
       : `<span style="font-size:11px;font-weight:700;color:var(--bad);background:#fef2f2;padding:3px 8px;border-radius:6px">⚠ diverge do FC em ${fM(diffCSV)}</span>`;
     const resumoCards=`<div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
       <div class="kcard"><h3>Saldo Inicial (${bal.rot})</h3>
-        <div class="kval">${fM(totalSi)}</div>
-        <div class="kmeta"><span style="font-size:11px;color:var(--muted)">soma de ${disponiveis.length} contas (caixa + bancos + aplic.)</span></div></div>
+        <div class="kval">${fM(totalSiCons)}</div>
+        <div class="kmeta"><span style="font-size:11px;color:var(--muted)">${disponiveis.length} contas Tejotão${senaInfo?' + Sena (FC)':''}</span></div></div>
       <div class="kcard"><h3>Saldo Final (${bal.rot})</h3>
-        <div class="kval ${totalSf<0?'bad':''}">${fM(totalSf)}</div>
+        <div class="kval ${totalSfCons<0?'bad':''}">${fM(totalSfCons)}</div>
         <div class="kmeta"><span style="font-size:11px;color:var(--muted)">posição ao fim do mês</span></div></div>
-      <div class="kcard"><h3>Variação no Mês (Balancete)</h3>
+      <div class="kcard"><h3>Variação no Mês</h3>
         <div class="kval" style="color:${corVar};font-size:20px">${sinalVar}${fM(variacao)}</div>
         <div class="kmeta"><span style="font-size:11px;color:var(--muted)">Saldo Final − Saldo Inicial</span></div></div>
       <div class="kcard"><h3>Variação de Caixa (FC)</h3>
