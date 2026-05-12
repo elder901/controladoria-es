@@ -319,7 +319,7 @@ async function renderP1(){
   const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
   fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+'<div id="bancos-box"></div>'+buildTabela(sl,tot);
   buildSparks(dados,sl);
-  renderBancosBox(ult.rot);
+  renderBancosBox(ult.rot, ult.varCaixa||0);
 }
 
 // ============================================================
@@ -338,11 +338,13 @@ async function renderBancosBox(rotAlvo){
     const bal=disp.find(d=>d.rot===rotAlvo)||disp[disp.length-1];
     const usouFallback=bal.rot!==rotAlvo;
     // Contas que começam com 1.1.01.03 = bancos
-    const bancos=bal.contas.filter(c=>c.classif.startsWith('1.1.01.03.')&&c.tipo!=='TT'&&Math.abs(c.total.sf)>0.005);
+    const bancos=bal.contas.filter(c=>c.classif.startsWith('1.1.01.03.')&&c.tipo!=='TT'&&(Math.abs(c.total.sf)>0.005||Math.abs(c.total.si||0)>0.005));
     if(!bancos.length){box.innerHTML='';return;}
     // Sintético do grupo (1.1.01.03) para conferência
     const sint=bal.contas.find(c=>c.classif==='1.1.01.03'&&c.tipo==='TT');
     const totalBancos=bancos.reduce((s,c)=>s+(c.total.sf||0),0);
+    const totalBancosIni=bancos.reduce((s,c)=>s+(c.total.si||0),0);
+    const variacao=totalBancos-totalBancosIni;
     const totalSint=sint?sint.total.sf:totalBancos;
     const diff=totalBancos-totalSint;
     const ok=Math.abs(diff)<1;
@@ -351,10 +353,12 @@ async function renderBancosBox(rotAlvo){
     const cor=v=>v<0?'var(--bad)':'#1d4ed8';
     const linhas=bancos.map(b=>{
       const v=b.total.sf;
+      const vi=b.total.si||0;
       const pct=Math.abs(v)/totAbs*100;
       return `<tr style="border-bottom:1px solid #f1f5f9">
         <td style="padding:8px 10px;font-size:11px;color:var(--muted);font-family:monospace">${b.classif}</td>
         <td style="padding:8px 10px;font-size:12px;font-weight:600">${b.descricao||b.conta}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right;color:var(--muted);white-space:nowrap">${fM(vi)}</td>
         <td style="padding:8px 10px">
           <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden">
             <div style="height:6px;width:${pct.toFixed(1)}%;background:${cor(v)};border-radius:3px"></div>
@@ -370,23 +374,40 @@ async function renderBancosBox(rotAlvo){
     const aviso=usouFallback
       ? `<span style="font-size:11px;color:var(--muted)">balancete de ${rotAlvo} não disponível — exibindo ${bal.rot}</span>`
       : `<span style="font-size:11px;color:var(--muted)">balancete de ${bal.rot}</span>`;
+    const corVar=variacao>=0?'var(--good)':'var(--bad)';
+    const sinalVar=variacao>=0?'+':'';
+    const resumoCards=`<div class="cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="kcard"><h3>Saldo Inicial (${bal.rot})</h3>
+        <div class="kval">${fM(totalBancosIni)}</div>
+        <div class="kmeta"><span style="font-size:11px;color:var(--muted)">soma de ${bancos.length} contas bancárias</span></div></div>
+      <div class="kcard"><h3>Saldo Final (${bal.rot})</h3>
+        <div class="kval ${totalBancos<0?'bad':''}">${fM(totalBancos)}</div>
+        <div class="kmeta"><span style="font-size:11px;color:var(--muted)">posição ao fim do mês</span></div></div>
+      <div class="kcard"><h3>Variação no Mês</h3>
+        <div class="kval" style="color:${corVar}">${sinalVar}${fM(variacao)}</div>
+        <div class="kmeta"><span style="font-size:11px;color:var(--muted)">Saldo Final − Saldo Inicial</span></div></div>
+    </div>`;
     box.innerHTML=`<div class="section">
       <div class="shead">
         <h2>Saldo por Banco — Caixa e Equivalentes</h2>
         <div style="display:flex;gap:10px;align-items:center">${aviso} ${badge}</div>
       </div>
+      ${resumoCards}
       <div class="twrap" style="max-height:380px">
         <table style="width:100%">
           <thead><tr style="background:#f8fafc;position:sticky;top:0;z-index:2">
             <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569">Classif.</th>
             <th style="text-align:left;padding:8px 10px;font-size:10px;color:#475569;min-width:200px">Banco</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo Inicial</th>
             <th style="padding:8px 10px;font-size:10px;color:#475569;min-width:140px">Distribuição</th>
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo</th>
+            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">Saldo Final</th>
             <th style="text-align:right;padding:8px 10px;font-size:10px;color:#475569">% do total</th>
           </tr></thead>
           <tbody>${linhas}
             <tr style="background:#eef2ff;font-weight:800">
-              <td colspan="3" style="padding:10px;font-size:12px">TOTAL DOS BANCOS (${bancos.length} contas)</td>
+              <td colspan="2" style="padding:10px;font-size:12px">TOTAL DOS BANCOS (${bancos.length} contas)</td>
+              <td style="padding:10px;text-align:right;font-size:12px;color:var(--muted)">${fM(totalBancosIni)}</td>
+              <td style="padding:10px;text-align:right;font-size:11px;color:${corVar}">${sinalVar}${fM(variacao)}</td>
               <td style="padding:10px;text-align:right;font-size:13px;color:${cor(totalBancos)}">${fM(totalBancos)}</td>
               <td style="padding:10px;text-align:right;font-size:11px;color:var(--muted)">100%</td>
             </tr>
@@ -2215,8 +2236,7 @@ async function renderIntelP3(){
   const dados=await getDadosCompP3(intelP3.empresa);
   if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados para a empresa selecionada.</div>';return;}
   if(!intelP3.ini || !dados.find(d=>d.rot===intelP3.ini)) intelP3.ini=dados[0].rot;
-  if(!intelP3.fim || !dados.find(d=>d.rot===intelP3.fim)) intelP3.fim=dados[dados.length-1].rot;
-  if(!intelP3.grandezas.length) intelP3.grandezas=['vlc'];
+   if(!intelP3.fim || !dados.find(d=>d.rot===intelP3.fim)) intelP3.fim=dados[dados.length-1].rot;
 
   const iI=dados.findIndex(d=>d.rot===intelP3.ini);
   const iF=dados.findIndex(d=>d.rot===intelP3.fim);
@@ -2281,7 +2301,7 @@ async function renderIntelP3(){
   }).join('');
 
   fp.innerHTML=`${toolbar}
-    <div class="cards" style="grid-template-columns:repeat(${Math.min(series.length,3)},1fr);margin-top:10px">${kpis}</div>
+    <div class="cards" style="grid-template-columns:repeat(${Math.max(Math.min(series.length,3),1)},1fr);margin-top:10px">${kpis}</div>
     <div class="section">
       <div class="shead"><h2>Comparativo dinâmico</h2>
         <span class="legend">${sl[0].rot} → ${sl[sl.length-1].rot}</span>
