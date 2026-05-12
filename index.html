@@ -140,8 +140,8 @@ tbody tr.rs td.ctot{background:#e4edff}
 // O CORS não é problema pois raw.githubusercontent tem os headers corretos para leitura
 const BASE = 'https://raw.githubusercontent.com/elder901/controladoria-es/main';
 const ARQ={
-  operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv'],
-  holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC jul 2026.csv']
+  operacional:['FC jan 2025.csv','FC fev 2025.csv','FC mar 2025.csv','FC abr 2025.csv','FC mai 2025.csv','FC jun 2025.csv','FC jul 2025.csv','FC ago 2025.csv','FC set 2025.csv','FC out 2025.csv','FC nov 2025.csv','FC dez 2025.csv','FC jan 2026.csv','FC fev 2026.csv','FC mar 2026.csv','FC abr 2026.csv'],
+  holding:['S FC jan 2025.csv','S FC fev 2025.csv','S FC mar 2025.csv','S FC abr 2025.csv','S FC mai 2025.csv','S FC jun 2025.csv','S FC jul 2025.csv','S FC ago 2025.csv','S FC set 2025.csv','S FC out 2025.csv','S FC nov 2025.csv','S FC dez 2025.csv','S FC jan 2026.csv','S FC fev 2026.csv','S FC mar 2026.csv','S FC abr 2026.csv','S FC jul 2026.csv']
 };
 const CM={
   'Total de Vendas Recebidas':'totVendas',
@@ -730,7 +730,7 @@ function calcP2(dados,aS,aE,bS,bE){
 // MÓDULO DRE
 // ============================================================
 const ARQ_DRE={
-  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv'],
+  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv','DREabr26.csv'],
 };
 const BASE_DRE='https://raw.githubusercontent.com/elder901/controladoria-es/main';
 
@@ -1234,7 +1234,7 @@ window.calcDREP2wrap=async function(){
 // MÓDULO BALANÇO PATRIMONIAL
 // ============================================================
 const ARQ_BP={
-  operacional:['BPjan25.csv','BPfev25.csv','BPmar25.csv','BPabr25.csv','BPmai25.csv','BPjun25.csv','BPjul25.csv','BPago25.csv','BPset25.csv','BPout25.csv','BPnov25.csv','BPdez25.csv','BPjan26.csv','BPfev26.csv','BPmar26.csv'],
+  operacional:['BPjan25.csv','BPfev25.csv','BPmar25.csv','BPabr25.csv','BPmai25.csv','BPjun25.csv','BPjul25.csv','BPago25.csv','BPset25.csv','BPout25.csv','BPnov25.csv','BPdez25.csv','BPjan26.csv','BPfev26.csv','BPmar26.csv','BPabr26.csv'],
 };
 
 function rotBP(arq){
@@ -1627,7 +1627,7 @@ async function renderBPP2(){
 // ============================================================
 async function getDadosIntel(){
   // Carrega os três módulos em paralelo para o mesmo conjunto de meses
-  const meses=['jan25','fev25','mar25','abr25','mai25','jun25','jul25','ago25','set25','out25','nov25','dez25','jan26','fev26','mar26'];
+  const meses=['jan25','fev25','mar25','abr25','mai25','jun25','jul25','ago25','set25','out25','nov25','dez25','jan26','fev26','mar26','abr26'];
   const fcArqs=ARQ.operacional;
   const dreArqs=ARQ_DRE.operacional;
   const bpArqs=ARQ_BP.operacional;
