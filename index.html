@@ -271,6 +271,8 @@ function combinar(op,hd){
       if(!dH)return null;
       const c={rot:dO.rot,arq:dO.arq,periodo:dO.periodo};
       for(const k of Object.values(CM))c[k]=(dO[k]||0)+(dH[k]||0);
+      c.saldoIni=(dO.saldoIni||0)+(dH.saldoIni||0);
+      c.saldoFim=(dO.saldoFim||0)+(dH.saldoFim||0);
       return c;
     })
     .filter(Boolean);
@@ -326,13 +328,12 @@ async function renderP1(){
 }
 
 // ============================================================
-// Disponibilidades — usa Balancete (contas 1.1.01.*: caixa + bancos + aplicações)
+// Disponibilidades — saldos sempre pelo Fluxo de Caixa (FC)
 // ============================================================
 async function renderBancosBox(rotAlvo, varCaixaCSV, sl, tot){
   const box=document.getElementById('bancos-box');
   if(!box)return;
-  // Holding (Sena) não tem balancete — renderiza versão simplificada apenas com FC
-  if(S.emp==='holding'){
+  const renderSaldosFC=(titulo,subtitulo)=>{
     const corV=v=>v>=0?'var(--good)':'var(--bad)';
     const sg=v=>v>=0?'+':'';
     const acum=tot?(tot.varCaixa||0):(varCaixaCSV||0);
@@ -364,8 +365,8 @@ async function renderBancosBox(rotAlvo, varCaixaCSV, sl, tot){
     }).join('');
     box.innerHTML=`<div class="section">
       <div class="shead">
-        <h2>Disponibilidades — Holding (Sena)</h2>
-        <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--muted)">Saldos do FC · holding não possui balancete analítico</span> ${badgeFC}</div>
+        <h2>${titulo}</h2>
+        <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--muted)">${subtitulo}</span> ${badgeFC}</div>
       </div>
       <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
         <div class="kcard"><h3>Saldo Inicial (${prim?prim.rot:'—'})</h3>
@@ -401,6 +402,17 @@ async function renderBancosBox(rotAlvo, varCaixaCSV, sl, tot){
         </table>
       </div>
     </div>`;
+  };
+  if(S.emp==='holding'){
+    renderSaldosFC('Disponibilidades — Holding (Sena)','saldos exclusivamente do FC');
+    return;
+  }
+  if(S.emp==='consolidado'){
+    renderSaldosFC('Disponibilidades — Consolidado','soma exata Sena + Tejotão, exclusivamente pelo FC');
+    return;
+  }
+  if(S.emp==='operacional'){
+    renderSaldosFC('Disponibilidades — Operacional (Tejotão)','saldos exclusivamente do FC');
     return;
   }
   box.innerHTML='<div class="section"><div class="loading" style="padding:14px">Carregando disponibilidades...</div></div>';
