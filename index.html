@@ -201,7 +201,11 @@ const CM={
   'Entradas de Correspondentes':'entCorresp',
   'Saída de Correspondentes':'saiCorresp',
 };
-let S={emp:'operacional',modulo:'financeiro',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null};
+let S={emp:'operacional',modulo:'financeiro',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null,avBase:(typeof localStorage!=='undefined'&&localStorage.getItem('dre.avBase'))||'rol'};
+// Base da Análise Vertical da DRE: 'rol' = Receita Operacional Líquida (padrão), 'rbe' = Receita Bruta Efetiva (Produtos)
+function avBaseField(){return S.avBase==='rbe'?'recBrutaEfetiva':'recLiq';}
+function avBaseLabel(){return S.avBase==='rbe'?'Receita Bruta Efetiva (Produtos)':'Receita Operacional Líquida';}
+window.setAvBase=function(b){S.avBase=b;try{localStorage.setItem('dre.avBase',b);}catch(e){}if(S.modulo==='dre'){if(S.pag===1)renderDREP1();else if(S.pag===2)renderDREP2();}};
 const fM=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}).format(v||0);
 const fP=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':(v>=0?'+':'')+v.toFixed(c)+'%';
 const fPS=(v,c=1)=>!isFinite(v)||isNaN(v)?'—':v.toFixed(c)+'%';
@@ -969,7 +973,7 @@ function calcP2(dados,aS,aE,bS,bE){
 // MÓDULO DRE
 // ============================================================
 let ARQ_DRE={
-  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv'],
+  operacional:['DREjan25.csv','DREfev25.csv','DREmar25.csv','DREabr25.csv','DREmai25.csv','DREjun25.csv','DREjul25.csv','DREago25.csv','DREset25.csv','DREout25.csv','DREnov25.csv','DREdez25.csv','DREjan26.csv','DREfev26.csv','DREmar26.csv','DREabr26.csv'],
 };
 const BASE_DRE='https://raw.githubusercontent.com/elder901/controladoria-es/main';
 
@@ -1123,12 +1127,17 @@ async function renderDREP1(){
       <button class="qbtn ${sl.length===12?'active':''}" onclick="setQ(12,${n})">Últ. 12 meses</button>
       <button class="qbtn ${sl.length===dados.length?'active':''}" onclick="setQ(0,${n})">Período completo</button>
     </div></div>
-  </div>`;
+    <div class="tg"><label>Base A.V.</label><div class="qbtns">
+      <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
+      <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
+    </div></div>
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}`;
 
   // Cards
   const cards=`<div class="cards">${KPI.map(it=>{
     const v=ult[it.c+suf]||0;
-    const pct=ult['recLiq'+suf]?((v/ult['recLiq'+suf])*100):0;
+    const _avB=ult[avBaseField()+suf]||0;
+    const pct=_avB?((v/_avB)*100):0;
     const vaa=aaData?aaData[it.c+suf]||0:null;
     const d=vaa!=null?v-vaa:null;
     const dpct=d!=null&&vaa?((d/Math.abs(vaa))*100):null;
@@ -1155,9 +1164,9 @@ async function renderDREP1(){
     <div class="aitem"><div class="ak">Receita Operacional Líquida</div><div class="av">${fM(ult['recLiq'+suf])}</div>
       <div class="as">Total do período: ${fM(tot.recLiq)}<br>${sl.length} mês(es) · ${sl[0].rot} até ${ult.rot}</div></div>
     <div class="aitem"><div class="ak">CMV Total</div><div class="av">${fM(ult['cmvTotal'+suf])}</div>
-      <div class="as">A.V.: <strong>${ult['recLiq'+suf]?fPS(((ult['cmvTotal'+suf]||0)/ult['recLiq'+suf])*100)+'%':'—'}</strong><br>Total período: ${fM(tot.cmvTotal)}</div></div>
+      <div class="as">A.V.: <strong>${(ult[avBaseField()+suf]||0)?fPS(((ult['cmvTotal'+suf]||0)/(ult[avBaseField()+suf]||1))*100)+'%':'—'}</strong><br>Total período: ${fM(tot.cmvTotal)}</div></div>
     <div class="aitem"><div class="ak">EBITDA</div><div class="av ${(ult['ebitda'+suf]||0)<0?'bad':''}">${fM(ult['ebitda'+suf])}</div>
-      <div class="as">Margem EBITDA: <strong>${ult['recLiq'+suf]?fPS(((ult['ebitda'+suf]||0)/ult['recLiq'+suf])*100)+'%':'—'}</strong></div></div>
+      <div class="as">Margem EBITDA: <strong>${(ult[avBaseField()+suf]||0)?fPS(((ult['ebitda'+suf]||0)/(ult[avBaseField()+suf]||1))*100)+'%':'—'}</strong> <span style="color:var(--muted);font-size:10px">(base ${S.avBase==='rbe'?'RBE':'ROL'})</span></div></div>
     <div class="aitem"><div class="ak">Leitura Rápida</div><div class="av" style="font-size:14px">${lr.t}</div>
       <div class="as">${lr.s}</div></div>
   </div>`;
@@ -1218,14 +1227,14 @@ async function renderDREP1(){
       tabela+=`<tr class="${ln.s?'rs':''}"><th>${ln.l}</th>`;
       for(const mes of sl){
         const v=mes[ln.c+suf]||0;
-        const rec=mes['recLiq'+suf]||0;
+        const rec=mes[avBaseField()+suf]||0;
         const av=rec?((v/rec)*100):0;
-        tabela+=`<td><div class="cv ${v<0&&ln.s?'bad':''}">${fM(v)}</div><div class="cp">A.V. ${fPS(av,2)}%</div></td>`;
+        tabela+=`<td><div class="cv ${v<0&&ln.s?'bad':''}">${fM(v)}</div><div class="cp">A.V. ${rec?fPS(av,2)+'%':'—'}</div></td>`;
       }
       const tv=sl.reduce((s,d)=>s+(d[ln.c+suf]||0),0);
-      const trec=tot.recLiq;
+      const trec=sl.reduce((s,d)=>s+(d[avBaseField()+suf]||0),0);
       const tav=trec?((tv/trec)*100):0;
-      tabela+=`<td class="ctot"><div class="cv ${tv<0&&ln.s?'bad':''}">${fM(tv)}</div><div class="cp">A.V. ${fPS(tav,2)}%</div></td></tr>`;
+      tabela+=`<td class="ctot"><div class="cv ${tv<0&&ln.s?'bad':''}">${fM(tv)}</div><div class="cp">A.V. ${trec?fPS(tav,2)+'%':'—'}</div></td></tr>`;
     }
   }
   tabela+=`</tbody></table></div></div>`;
@@ -1273,7 +1282,11 @@ async function renderDREP2(){
       <button class="qbtn" onclick="presetDRE('sem1')">1º Sem 25 vs 26</button>
       <button class="qbtn" onclick="presetDRE('ano')">2025 vs 2026</button>
     </div></div>
-  </div><div id="p2body"><div class="loading">Calculando...</div></div>`;
+    <div class="tg"><label>Base A.V.</label><div class="qbtns">
+      <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
+      <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
+    </div></div>
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}<div id="p2body"><div class="loading">Calculando...</div></div>`;
   calcDREP2(dados,dAS,dAE,dBS,dBE);
 }
 
@@ -1317,8 +1330,9 @@ function calcDREP2(dados,aS,aE,bS,bE){
   const KPI=['recLiq','margemVenda','margemContrib','despOperacionais','ebitda','ebit','resLiquido','resLucroLiq'];
   const KPIlabels=['Receita Op. Líquida','Margem de Venda','Margem Contribuição','Desp. Operacionais','EBITDA','EBIT','Resultado Líquido','Lucro Líquido Final'];
 
-  const recLiqA_dre=A['recLiq']||1;
-  const recLiqB_dre=B['recLiq']||1;
+  const _baseField=avBaseField();
+  const recLiqA_dre=A[_baseField]||0;
+  const recLiqB_dre=B[_baseField]||0;
 
   const cards=KPI.map((k,i)=>{
     const{d,p}=df(A[k]||0,B[k]||0);const cls=d>=0?'good':'bad';
@@ -1328,8 +1342,8 @@ function calcDREP2(dados,aS,aE,bS,bE){
     return `<div class="kcard" style="min-height:0;padding:12px">
       <h3>${KPIlabels[i]}</h3>
       <div class="kval" style="font-size:18px" class="${B[k]<0?'bad':''}">${fM(B[k]||0)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px">A.V. período B: <strong>${fPS(avB,1)}%</strong></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">A: ${fM(A[k]||0)} (${fPS(avA,1)}%)</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">A.V. período B: <strong>${recLiqB_dre?fPS(avB,1)+'%':'—'}</strong></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">A: ${fM(A[k]||0)} (${recLiqA_dre?fPS(avA,1)+'%':'—'})</div>
       <div style="font-size:11px;margin-top:2px">
         <span class="${cls}">${fM(d)} · ${fP(p)}</span>
         ${Math.abs(dpp)>0.1?`<span class="${dcls(-dpp)}" style="margin-left:6px;font-size:10px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</span>`:''}
@@ -1430,8 +1444,8 @@ function calcDREP2(dados,aS,aE,bS,bE){
     const dpp=avB-avA;
     return `<tr class="${m.s?'rs':''}">
       <td style="font-size:12px;font-weight:${m.s?700:400};text-align:left;min-width:200px">${m.l}</td>
-      <td><div class="cv ${(A[m.c]||0)<0&&m.s?'bad':''}">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
-      <td><div class="cv ${(B[m.c]||0)<0&&m.s?'bad':''}">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
+      <td><div class="cv ${(A[m.c]||0)<0&&m.s?'bad':''}">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${recLiqA_dre?fPS(avA,2)+'%':'—'}</div></td>
+      <td><div class="cv ${(B[m.c]||0)<0&&m.s?'bad':''}">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${recLiqB_dre?fPS(avB,2)+'%':'—'}</div></td>
       <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
       <td class="cv ${dcls(d)}">${fM(d)}</td>
       <td class="cv ${dcls(d)}">${fP(p)}</td>
