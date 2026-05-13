@@ -202,6 +202,26 @@ const CM={
   'Saída de Correspondentes':'saiCorresp',
 };
 let S={emp:'operacional',modulo:'financeiro',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null,avBase:(typeof localStorage!=='undefined'&&localStorage.getItem('dre.avBase'))||'rol'};
+S.simAluguelEmp=(typeof localStorage!=='undefined'&&localStorage.getItem('dre.simAluguelEmp')==='1')||false;
+const SIM_ALUGUEL_VALOR=100000;
+function applySimAluguel(dados){
+  if(!(S.emp==='consolidado'&&S.simAluguelEmp))return dados;
+  const D=SIM_ALUGUEL_VALOR;
+  const ADD=['alugueis','despFixas','despOperacionais'];
+  const SUB=['ebitda','ebit','resPeriodo','resLiquido','resLucroLiq','resAposEmp'];
+  // resAposEmp incluído pois é downstream de resLucroLiq
+  return dados.map(r=>{
+    const c={...r};
+    ADD.forEach(k=>{c[k+'_emp']=(c[k+'_emp']||0)+D;});
+    SUB.forEach(k=>{c[k+'_emp']=(c[k+'_emp']||0)-D;});
+    return c;
+  });
+}
+window.setSimAluguel=function(b){
+  S.simAluguelEmp=!!b;
+  try{localStorage.setItem('dre.simAluguelEmp',S.simAluguelEmp?'1':'0');}catch(e){}
+  if(S.modulo==='dre'){if(S.pag===1)renderDREP1();else if(S.pag===2)renderDREP2();}
+};
 // Base da Análise Vertical da DRE: 'rol' = Receita Operacional Líquida (padrão), 'rbe' = Receita Bruta Efetiva (Produtos)
 function avBaseField(){return S.avBase==='rbe'?'recBrutaEfetiva':'recLiq';}
 function avBaseLabel(){return S.avBase==='rbe'?'Receita Bruta Efetiva (Produtos)':'Receita Operacional Líquida';}
@@ -1078,7 +1098,7 @@ async function renderDRE(){
 
 async function renderDREP1(){
   const fp=document.getElementById('fp');
-  const dados=await getDadosDRE();
+  const dados=applySimAluguel(await getDadosDRE());
   if(!dados.length){fp.innerHTML='<div class="errmsg">Não foi possível carregar os dados. Verifique se os CSVs estão na pasta <code>data/dre/</code> do GitHub.</div>';return;}
   if(!S.ini)S.ini=dados[0].rot;
   if(!S.fim)S.fim=dados[dados.length-1].rot;
@@ -1131,7 +1151,11 @@ async function renderDREP1(){
       <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
       <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
     </div></div>
-  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}`;
+    <div class="tg"><label>Simular aluguel</label><div class="qbtns">
+      <button class="qbtn ${!S.simAluguelEmp?'active':''}" onclick="setSimAluguel(false)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>OFF</button>
+      <button class="qbtn ${S.simAluguelEmp?'active':''}" onclick="setSimAluguel(true)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>ON</button>
+    </div></div>
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}`;
 
   // Cards
   const cards=`<div class="cards">${KPI.map(it=>{
@@ -1261,7 +1285,7 @@ async function renderDREP1(){
 
 async function renderDREP2(){
   const fp=document.getElementById('fp');
-  const dados=await getDadosDRE();
+  const dados=applySimAluguel(await getDadosDRE());
   if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
   const rots=dados.map(d=>d.rot);
   const rots25=rots.filter(r=>r.endsWith('/25')),rots26=rots.filter(r=>r.endsWith('/26'));
@@ -1286,12 +1310,16 @@ async function renderDREP2(){
       <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
       <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
     </div></div>
-  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}<div id="p2body"><div class="loading">Calculando...</div></div>`;
+    <div class="tg"><label>Simular aluguel</label><div class="qbtns">
+      <button class="qbtn ${!S.simAluguelEmp?'active':''}" onclick="setSimAluguel(false)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>OFF</button>
+      <button class="qbtn ${S.simAluguelEmp?'active':''}" onclick="setSimAluguel(true)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>ON</button>
+    </div></div>
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}<div id="p2body"><div class="loading">Calculando...</div></div>`;
   calcDREP2(dados,dAS,dAE,dBS,dBE);
 }
 
 window.presetDRE=async function(t){
-  const dados=await getDadosDRE();
+  const dados=applySimAluguel(await getDadosDRE());
   const rots=dados.map(d=>d.rot);
   const has=r=>rots.includes(r);
   const last26=rots.filter(r=>r.endsWith('/26')).slice(-1)[0]||'mar/26';
