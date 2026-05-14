@@ -1990,15 +1990,30 @@ async function renderIntelP1(){
   // Estado do filtro de empresa do módulo Inteligência
   if(!window.intelEmp) window.intelEmp='tejotao';
 
+  // Resolução de empresa + disponibilidade de BP (precisa vir antes da toolbar)
+  const intelEmpSel = window.intelEmp||'tejotao';
+  // Disponibilidade de BP por empresa. Hoje só temos balancete do Tejotão.
+  // Quando entrar CSV de balancete da Sena em data/bp/, basta virar este flag.
+  const bpDisp = { tejotao:true, sena:false, consolidado:false };
+  const consolEspelho = intelEmpSel==='consolidado' && !bpDisp.sena;
+  const intelEmp = consolEspelho ? 'tejotao' : intelEmpSel;
+  const suf_dados = intelEmp==='tejotao'?'_tej':intelEmp==='sena'?'_sena':'_emp';
+  const suf_bp    = bpDisp[intelEmp] ? suf_dados : '_tej';
+  const usandoBPTejotao = suf_bp !== suf_dados;
+  const empLabel    = intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado';
+  const empLabelSel = intelEmpSel==='tejotao'?'Tejotão':intelEmpSel==='sena'?'Sena':'Consolidado';
+  // Label da empresa cujos dados aparecem nos blocos que dependem de BP (bridge/ciclo/indicadores)
+  const empLabelBP  = suf_bp==='_tej'?'Tejotão':suf_bp==='_sena'?'Sena':'Consolidado';
+
   const toolbar=`<div class="toolbar">
     <div class="tg"><label>Mês de análise</label>
       <select onchange="S.ini=this.value;renderIntelP1()">${opts}</select>
     </div>
     <div class="tg"><label>Empresa</label>
       <div class="btngrp">
-        <button class="btn ${window.intelEmp==='tejotao'?'active':''}" onclick="window.intelEmp='tejotao';renderIntelP1()">Tejotão</button>
-        <button class="btn ${window.intelEmp==='sena'?'active':''}" onclick="window.intelEmp='sena';renderIntelP1()">Sena</button>
-        <button class="btn ${window.intelEmp==='consolidado'?'active':''}" onclick="window.intelEmp='consolidado';renderIntelP1()">Consolidado</button>
+        <button class="btn ${intelEmpSel==='tejotao'?'active':''}" onclick="window.intelEmp='tejotao';renderIntelP1()">Tejotão</button>
+        <button class="btn ${intelEmpSel==='sena'?'active':''}" onclick="window.intelEmp='sena';renderIntelP1()">Sena</button>
+        <button class="btn ${intelEmpSel==='consolidado'?'active':''}" onclick="window.intelEmp='consolidado';renderIntelP1()">Consolidado</button>
       </div>
     </div>
     <div style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:6px">
@@ -2006,12 +2021,18 @@ async function renderIntelP1(){
     </div>
   </div>`;
 
+  // Avisos visuais
+  const bannerConsol = consolEspelho ? `<div style="margin-bottom:12px;padding:10px 14px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;font-size:12px;color:#9a3412">
+    <strong>Consolidado temporariamente espelha apenas Tejotão</strong> — aguardando balancete da Sena. Quando o BP da Sena entrar em <code>data/bp/</code>, o Consolidado passa a somar de verdade automaticamente.
+  </div>` : '';
+  const badgeBP = (usandoBPTejotao && !consolEspelho) ? ` <span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:10px;font-weight:700;vertical-align:middle">BP do Tejotão (Sena pendente)</span>` : '';
+
   // ============================================================
   // INTELIGÊNCIA P1 — Resolução de empresa (Tej / Sena / Consol)
   // ============================================================
-  const intelEmp = window.intelEmp||'tejotao';
-  const suf_dre = intelEmp==='tejotao'?'_tej':intelEmp==='sena'?'_sena':'_emp';
-  const empLabel = intelEmp==='tejotao'?'Tejotão':intelEmp==='sena'?'Sena':'Consolidado';
+  // (resolução já feita acima — suf_dados/suf_bp/intelEmp/empLabel)
+  // Alias retrocompatível: blocos que misturam DRE+BP usam suf_bp para coerência contábil
+  const suf_dre = suf_bp;
 
   // FC por empresa: Tejotão = operacional (fc); Sena = holding (hdMes); Consol = soma
   const hdTodos = await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
@@ -2076,7 +2097,10 @@ async function renderIntelP1(){
   const cFin = dFinancCP + dFinancLP + dProvFiscPNC + outrosPL;
 
   // Total e resíduo
-  const caixaReal     = (fcAtivo?fcAtivo.varCaixa||0:(fcTej?.varCaixa||0)+(fcSena?.varCaixa||0));
+  // Quando o bridge usa BP do Tejotão, o caixa de comparação também vem do Tejotão
+  // (senão compararíamos fluxos de empresas diferentes e o resíduo abriria).
+  const fcParaBridge = usandoBPTejotao ? fcTej : fcAtivo;
+  const caixaReal     = (fcParaBridge?fcParaBridge.varCaixa||0:(fcTej?.varCaixa||0)+(fcSena?.varCaixa||0));
   const estimadoTotal = cOp + cInv + cFin;
   const residuo       = caixaReal - estimadoTotal;
   const refResid      = Math.max(Math.abs(caixaReal),Math.abs(lucro),1);
@@ -2095,7 +2119,7 @@ async function renderIntelP1(){
   };
   const destinoLucro=`<div class="section">
     <div class="shead"><h2>De onde veio o caixa do mês?</h2>
-      <span class="legend">${mes.rot} · ${empLabel} · Variação real de caixa: <strong>${fM(caixaReal)}</strong></span>
+      <span class="legend">${mes.rot} · ${empLabelBP} · Variação real de caixa: <strong>${fM(caixaReal)}</strong>${badgeBP}</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
       ${kpiCaixa('Caixa Operacional', cOp, cOp>0?'A operação se paga e gera sobra de caixa.':'A operação não está cobrindo o próprio capital de giro.', '#10b981')}
@@ -2131,7 +2155,7 @@ async function renderIntelP1(){
 
   const bridge=`<div class="section">
     <div class="shead"><h2>Bridge: Lucro → Caixa (DFC indireta)</h2>
-      <span class="legend">${empLabel} · ${mes.rot}</span>
+      <span class="legend">${empLabelBP} · ${mes.rot}${badgeBP}</span>
     </div>
     <div style="font-size:11px;color:var(--muted);background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px">
       Convenção: valor (+) contribui para caixa · (−) consome caixa.
@@ -2209,7 +2233,7 @@ async function renderIntelP1(){
 
   const cicloCard=`<div class="section">
     <div class="shead"><h2>Ciclo Financeiro</h2>
-      <span class="legend">Quantos dias o dinheiro fica preso?</span>
+      <span class="legend">Quantos dias o dinheiro fica preso?${badgeBP}</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
       <div class="aitem">
@@ -2252,7 +2276,7 @@ async function renderIntelP1(){
 
   const indicadores=`<div class="section">
     <div class="shead"><h2>Indicadores Cruzados</h2>
-      <span class="legend">FC + DRE + BP combinados</span>
+      <span class="legend">FC + DRE + BP combinados${badgeBP}</span>
     </div>
     <div class="analysis">
       <div class="aitem">
@@ -2280,8 +2304,8 @@ async function renderIntelP1(){
 
   // Dados por empresa para os cards executivos (intelEmp/suf_dre/hdMes/fcTej/fcSena/fcAtivo já definidos no topo)
 
-  // Lucro líquido DRE econômica — já tem colunas separadas no CSV
-  const lucroLiqDRE = dre['resLucroLiq'+suf_dre]||0;
+  // Lucro líquido DRE econômica — usa empresa selecionada (DRE pura, sem BP)
+  const lucroLiqDRE = dre['resLucroLiq'+suf_dados]||0;
 
   // Resultado de caixa (FC)
   let resultCaixa = 0;
@@ -2305,8 +2329,8 @@ async function renderIntelP1(){
   const varEstoque  = bp.estoques     - (bp.estoquesAnt    ||bp.estoques);
   const varClientes = bp.contasReceber- (bp.contasReceberAnt||bp.contasReceber);
 
-  // Referência para A.V.% — receita líquida DRE
-  const recLiqRef = dre['recLiq'+suf_dre]||dre.recLiq_tej||1;
+  // Referência para A.V.% — receita líquida DRE da empresa selecionada
+  const recLiqRef = dre['recLiq'+suf_dados]||dre.recLiq_tej||1;
 
   // Cards executivos
   const cardsExec=[
@@ -2338,7 +2362,7 @@ async function renderIntelP1(){
     <div class="cards">${cardsExec}</div>
   </div>`;
 
-  fp.innerHTML=toolbar+secaoCards+destinoLucro+bridge+cicloCard+indicadores;
+  fp.innerHTML=toolbar+bannerConsol+secaoCards+destinoLucro+bridge+cicloCard+indicadores;
 }
 
 
