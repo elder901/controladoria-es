@@ -2856,6 +2856,10 @@ let PARAMS={
   pctCustosOp:90.5, pctImpostosVda:5.0, pctJuros:0.4, pctIR:0.6,
   pctMargemCaixa:3.5, vlcMedioMes:13614346, capexMedioMes:0,
   varCaixaMedio:0, nMesesFC:0,
+  // Decomposição em 4 blocos (Projeção 12m profissional)
+  pctFornec:62, pctPessoal:12, pctAdm:11, pctTributos:5,
+  sazonal:{receita:Array(12).fill(1),fornec:Array(12).fill(1),pessoal:Array(12).fill(1),adm:Array(12).fill(1),trib:Array(12).fill(1)},
+  parcelaEmCursoMes:0, parcelaEmCursoJuros:0,
 };
 async function calcularParams(){
   try{
@@ -2897,6 +2901,23 @@ async function calcularParams(){
       const sumPct=fn=>fc.reduce((s,d)=>s+fn(d),0)/n;
       const A=Math.abs;
       const custosOpLiq=d=>A(d.totCustos||0)-A(d.jurosEmprestimos||0); // tira juros pra não dobrar
+      // 4 blocos de saídas (regime caixa)
+      const fornec  =d=>A(d.compras||0);
+      const pessoal =d=>A(d.despPess||0);
+      const adm     =d=>A(d.despAdm||0)+A(d.alugueis||0)+A(d.fretes||0)+A(d.taxCart||0)+A(d.outSai||0)-A(d.recupDesp||0);
+      const tribut  =d=>A(d.impostos||0)+A(d.despTrib||0)+A(d.despMult||0);
+      // Sazonalidade: índice = média(mês-calendário) / média geral
+      const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      const sazVec=fn=>{
+        const buckets=Array.from({length:12},()=>[]);
+        fc.forEach(d=>{const mi=MESES.indexOf((d.rot||'').slice(0,3));if(mi>=0)buckets[mi].push(fn(d));});
+        const geral=fc.reduce((s,d)=>s+fn(d),0)/n||1;
+        return buckets.map(b=>b.length?(b.reduce((s,v)=>s+v,0)/b.length)/geral:1);
+      };
+      // Parcelas de empréstimo em curso: média dos últimos 3 meses
+      const ult3=fc.slice(-3);const m3=ult3.length||1;
+      const parcelaEmCursoMes  =ult3.reduce((s,d)=>s+A(d.emprestimos||0),0)/m3;
+      const parcelaEmCursoJuros=ult3.reduce((s,d)=>s+A(d.jurosEmprestimos||0),0)/m3;
       Object.assign(PARAMS,{
         pctCustosOp:    sumPct(d=>custosOpLiq(d)/d.vlc*100),
         pctImpostosVda: sumPct(d=>(A(d.impostos||0)+A(d.despTrib||0)+A(d.despMult||0))/d.vlc*100),
@@ -2907,6 +2928,18 @@ async function calcularParams(){
         capexMedioMes:  fc.reduce((s,d)=>s+A(d.imobilizado||0),0)/n,
         varCaixaMedio:  fc.reduce((s,d)=>s+(d.varCaixa||0),0)/n,
         nMesesFC:       n,
+        pctFornec:      sumPct(d=>fornec(d)/d.vlc*100),
+        pctPessoal:     sumPct(d=>pessoal(d)/d.vlc*100),
+        pctAdm:         sumPct(d=>adm(d)/d.vlc*100),
+        pctTributos:    sumPct(d=>tribut(d)/d.vlc*100),
+        sazonal:{
+          receita: sazVec(d=>d.vlc||0),
+          fornec:  sazVec(fornec),
+          pessoal: sazVec(pessoal),
+          adm:     sazVec(adm),
+          trib:    sazVec(tribut),
+        },
+        parcelaEmCursoMes, parcelaEmCursoJuros,
       });
     }
   }catch(e){console.log('Usando parâmetros padrão',e);}
@@ -3056,22 +3089,31 @@ async function renderProjecao12(){
   // Carrega estado persistido
   const ls=k=>{try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}};
   const cenDefault={
-    pess:{cresc:-1, dCustos:2,   dJuros:0.5,  dIR:0},
-    base:{cresc:1.5,dCustos:0,   dJuros:0,    dIR:0},
-    otim:{cresc:3,  dCustos:-1,  dJuros:-0.3, dIR:0},
+    pess:{cresc:-1, dForn:1.5, dPess:0.5, dAdm:0,    dTrib:0, dJuros:0.5,  dIR:0},
+    base:{cresc:1.5,dForn:0,   dPess:0,   dAdm:0,    dTrib:0, dJuros:0,    dIR:0},
+    otim:{cresc:3,  dForn:-1,  dPess:0,   dAdm:-0.5, dTrib:0, dJuros:-0.3, dIR:0},
   };
-  // Migração: se vier cenário antigo no localStorage, converte
+  // Migração: se vier cenário antigo (dCustos único), distribui pelos 4 blocos pelo peso
   const cenLS=ls('prev:cenarios');
-  const cenMigr=cenLS?Object.fromEntries(Object.entries(cenLS).map(([k,v])=>[k,{
-    cresc:v.cresc??cenDefault[k].cresc,
-    dCustos:v.dCustos??v.dCMV??cenDefault[k].dCustos,
-    dJuros:v.dJuros??cenDefault[k].dJuros,
-    dIR:v.dIR??cenDefault[k].dIR,
-  }])):cenDefault;
+  const totBase=(PARAMS.pctFornec||0)+(PARAMS.pctPessoal||0)+(PARAMS.pctAdm||0)+(PARAMS.pctTributos||0)||1;
+  const wF=(PARAMS.pctFornec||0)/totBase,wP=(PARAMS.pctPessoal||0)/totBase,wA=(PARAMS.pctAdm||0)/totBase,wT=(PARAMS.pctTributos||0)/totBase;
+  const cenMigr=cenLS?Object.fromEntries(Object.entries(cenLS).map(([k,v])=>{
+    const dC=v.dCustos??v.dCMV;
+    return [k,{
+      cresc:v.cresc??cenDefault[k].cresc,
+      dForn: v.dForn ?? (dC!=null?+(dC*wF).toFixed(2):cenDefault[k].dForn),
+      dPess: v.dPess ?? (dC!=null?+(dC*wP).toFixed(2):cenDefault[k].dPess),
+      dAdm:  v.dAdm  ?? (dC!=null?+(dC*wA).toFixed(2):cenDefault[k].dAdm),
+      dTrib: v.dTrib ?? (dC!=null?+(dC*wT).toFixed(2):cenDefault[k].dTrib),
+      dJuros:v.dJuros??cenDefault[k].dJuros,
+      dIR:   v.dIR   ??cenDefault[k].dIR,
+    }];
+  })):cenDefault;
   window.PREV={
     saldoIni: ls('prev:saldoIni') ?? 0,
     base:     ls('prev:base')     ?? Math.round(PARAMS.vlcMedioMes||PARAMS.recLiqMedMes),
     mesIni:   ls('prev:mesIni')   ?? 'abr/26',
+    pmp:      ls('prev:pmp')      ?? Math.round(PARAMS.pmp||21),
     ativo:    ls('prev:ativo')    ?? 'base',
     cenarios: cenMigr,
     eventos:  ls('prev:eventos')  ?? [],
@@ -3088,7 +3130,10 @@ async function renderProjecao12(){
       </div>
       <div style="display:grid;gap:6px;font-size:11px;color:var(--muted)">
         <div style="display:flex;justify-content:space-between;align-items:center">Crescimento %/m ${inp('c-'+k+'-cresc',c.cresc)}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">Δ Custos Op (pp) ${inp('c-'+k+'-dCustos',c.dCustos)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Fornec (pp) ${inp('c-'+k+'-dForn',c.dForn)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Pessoal (pp) ${inp('c-'+k+'-dPess',c.dPess)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Adm (pp) ${inp('c-'+k+'-dAdm',c.dAdm)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Tributos (pp) ${inp('c-'+k+'-dTrib',c.dTrib)}</div>
         <div style="display:flex;justify-content:space-between;align-items:center">Δ Juros (pp) ${inp('c-'+k+'-dJuros',c.dJuros)}</div>
         <div style="display:flex;justify-content:space-between;align-items:center">Δ IR (pp) ${inp('c-'+k+'-dIR',c.dIR)}</div>
       </div>
@@ -3098,9 +3143,9 @@ async function renderProjecao12(){
   fp.innerHTML=`
     <div class="section">
       <div class="shead"><h2>Projeção de Caixa 12 Meses</h2>
-        <span class="legend">Calibrado com ${PARAMS.nMesesFC||0} meses de Fluxo de Caixa (regime caixa) · Receita − Custos − Impostos − Juros − IR ± Eventos</span>
+        <span class="legend">Calibrado com ${PARAMS.nMesesFC||0} meses de FC (regime caixa) · 4 blocos de saídas · sazonalidade automática · CAPEX só por evento</span>
       </div>
-      <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px">
         <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Saldo de Caixa Inicial (R$)</label>
           <input type="number" id="prev-saldo" value="${PREV.saldoIni}" oninput="prevSet('prev-saldo',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right"/></div>
         <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Receita Caixa Base (VLC R$/mês)</label>
@@ -3109,15 +3154,22 @@ async function renderProjecao12(){
           <select id="prev-mesini" onchange="prevSet('prev-mesini',this.value)" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
             ${opMes.map(m=>`<option ${m===PREV.mesIni?'selected':''}>${m}</option>`).join('')}
           </select></div>
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">PMP Fornecedores (dias)</label>
+          <input type="number" id="prev-pmp" value="${PREV.pmp}" min="0" max="180" oninput="prevSet('prev-pmp',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right" title="Histórico: ${Math.round(PARAMS.pmp||21)} dias. Aumentar libera caixa no curto prazo."/></div>
       </div>
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#1e40af">
-        <strong>Baseline histórico FC:</strong>
-        Custos Op ${(PARAMS.pctCustosOp||0).toFixed(1)}% ·
-        Imp.Vendas ${(PARAMS.pctImpostosVda||0).toFixed(1)}% ·
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#1e40af;line-height:1.7">
+        <strong>Baseline histórico FC (% sobre VLC):</strong>
+        Fornec ${(PARAMS.pctFornec||0).toFixed(1)}% ·
+        Pessoal ${(PARAMS.pctPessoal||0).toFixed(1)}% ·
+        Adm ${(PARAMS.pctAdm||0).toFixed(1)}% ·
+        Tributos ${(PARAMS.pctTributos||0).toFixed(1)}% ·
         Juros ${(PARAMS.pctJuros||0).toFixed(2)}% ·
         IR ${(PARAMS.pctIR||0).toFixed(2)}% ·
-        Margem caixa média ${(PARAMS.pctMargemCaixa||0).toFixed(1)}% ·
-        CAPEX médio ${fM(PARAMS.capexMedioMes||0)}/mês
+        Margem caixa ${(PARAMS.pctMargemCaixa||0).toFixed(1)}%<br>
+        <strong>Sazonalidade ativa</strong> (índice receita por mês):
+        ${(PARAMS.sazonal?.receita||[]).map((v,i)=>['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][i]+' '+(v>=1?'+':'')+((v-1)*100).toFixed(0)+'%').join(' · ')}<br>
+        <strong>CAPEX:</strong> só por evento programado (histórico médio era ${fM(PARAMS.capexMedioMes||0)}/mês — adicione eventos abaixo se for repetir).
+        ${PARAMS.parcelaEmCursoMes>0?`<br><strong>Parcelas em curso detectadas:</strong> ${fM(PARAMS.parcelaEmCursoMes)}/mês + juros ${fM(PARAMS.parcelaEmCursoJuros)}/mês (média 3m). <a href="#" onclick="prevAddParcCurso();return false" style="color:#1e40af;text-decoration:underline">Adicionar como evento</a>`:''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
         ${cenCol('pess','Pessimista','#dc2626')}
@@ -3185,33 +3237,63 @@ function calcCenario(cen){
     }
   });
   const rows=[];let saldoAcum=PREV.saldoIni;
-  const capexBase=PARAMS.capexMedioMes||0;
-  for(let i=0;i<12;i++){
-    const receita=PREV.base*Math.pow(1+cen.cresc/100,i);
-    const custosOp=receita*(Math.abs(PARAMS.pctCustosOp||0)+(cen.dCustos||0))/100;
-    const impVendas=receita*Math.abs(PARAMS.pctImpostosVda||0)/100;
-    const rot=meses[iMes]+'/'+String(iAno).slice(2);
-    iMes=(iMes+1)%12;if(iMes===0)iAno++;
+  const saz=PARAMS.sazonal||{receita:Array(12).fill(1),fornec:Array(12).fill(1),pessoal:Array(12).fill(1),adm:Array(12).fill(1),trib:Array(12).fill(1)};
+  const pmpHist=Math.round(PARAMS.pmp||21);
+  const pmpUser=Math.round(PREV.pmp??pmpHist);
+  const shiftMeses=Math.round((pmpUser-pmpHist)/30); // shift positivo = atrasa pagamento de fornec
+  // Pré-calcula receita e fornec por mês de competência (12 meses + buffer pra shift)
+  const N=12;const calMes=[];
+  let mi=iMes,mai=iAno;
+  for(let i=0;i<N+Math.abs(shiftMeses)+1;i++){
+    calMes.push({mes:mi,ano:mai});
+    mi=(mi+1)%12;if(mi===0)mai++;
+  }
+  const receitaArr=[],fornecComp=[],pessArr=[],admArr=[],tribArr=[];
+  for(let i=0;i<calMes.length;i++){
+    const r=PREV.base*Math.pow(1+cen.cresc/100,i)*(saz.receita[calMes[i].mes]||1);
+    receitaArr.push(r);
+    fornecComp.push(r*Math.max(0,(PARAMS.pctFornec||0)+(cen.dForn||0))/100*(saz.fornec[calMes[i].mes]||1));
+    pessArr.push(r*Math.max(0,(PARAMS.pctPessoal||0)+(cen.dPess||0))/100*(saz.pessoal[calMes[i].mes]||1));
+    admArr.push(r*Math.max(0,(PARAMS.pctAdm||0)+(cen.dAdm||0))/100*(saz.adm[calMes[i].mes]||1));
+    tribArr.push(r*Math.max(0,(PARAMS.pctTributos||0)+(cen.dTrib||0))/100*(saz.trib[calMes[i].mes]||1));
+  }
+  for(let i=0;i<N;i++){
+    const cm=calMes[i];
+    const rot=meses[cm.mes]+'/'+String(cm.ano).slice(2);
+    const receita=receitaArr[i];
+    // Fornecedor PAGO no mês i = competência do mês (i - shift), respeitando bordas
+    const idxFornPago=i-shiftMeses;
+    const fornec=(idxFornPago>=0&&idxFornPago<calMes.length)?fornecComp[idxFornPago]:fornecComp[Math.max(0,Math.min(calMes.length-1,idxFornPago))];
+    const pessoal=pessArr[i];
+    const adm=admArr[i];
+    const trib=tribArr[i];
     const ev=evMap[rot]||{capex:0,emp:0,jurosExtra:0};
-    const jurosBase=receita*Math.max(0,(Math.abs(PARAMS.pctJuros||0)+(cen.dJuros||0)))/100;
+    const jurosBase=receita*Math.max(0,(PARAMS.pctJuros||0)+(cen.dJuros||0))/100;
     const juros=jurosBase+ev.jurosExtra;
-    const ir=Math.max(0,receita*(Math.abs(PARAMS.pctIR||0)+(cen.dIR||0))/100);
-    const caixaOp=receita-custosOp-impVendas-juros-ir;
-    const capex=capexBase+ev.capex;
+    const ir=Math.max(0,receita*Math.max(0,(PARAMS.pctIR||0)+(cen.dIR||0))/100);
+    const caixaOp=receita-fornec-pessoal-adm-trib-juros-ir;
+    const capex=ev.capex; // sem baseline
     const caixaMes=caixaOp-capex+ev.emp;
     saldoAcum+=caixaMes;
-    rows.push({rot,receita,custosOp,impVendas,juros,ir,caixaOp,capex,emp:ev.emp,caixaMes,saldoAcum});
+    rows.push({rot,receita,fornec,pessoal,adm,trib,juros,ir,caixaOp,capex,emp:ev.emp,caixaMes,saldoAcum});
   }
   return rows;
 }
 window.prevSet=function(id,v){
-  const map={'prev-saldo':'saldoIni','prev-base':'base','prev-mesini':'mesIni'};
+  const map={'prev-saldo':'saldoIni','prev-base':'base','prev-mesini':'mesIni','prev-pmp':'pmp'};
   if(map[id]){PREV[map[id]]=id==='prev-mesini'?v:(+v||0);localStorage.setItem('prev:'+map[id],JSON.stringify(PREV[map[id]]));}
-  else{const m=id.match(/^c-(pess|base|otim)-(cresc|dCustos|dJuros|dIR)$/);if(m){PREV.cenarios[m[1]][m[2]]=+v||0;localStorage.setItem('prev:cenarios',JSON.stringify(PREV.cenarios));}}
+  else{const m=id.match(/^c-(pess|base|otim)-(cresc|dForn|dPess|dAdm|dTrib|dJuros|dIR)$/);if(m){PREV.cenarios[m[1]][m[2]]=+v||0;localStorage.setItem('prev:cenarios',JSON.stringify(PREV.cenarios));}}
   atualizarProjecao();
 };
 window.prevAtivar=function(k){PREV.ativo=k;localStorage.setItem('prev:ativo',JSON.stringify(k));renderProjecao12();};
 window.prevAddEv=function(){PREV.eventos.push({mes:'jun/26',tipo:'capex',valor:100000,parcelas:1,pctJuros:1.5});localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
+window.prevAddParcCurso=function(){
+  // Pré-popula evento emp_out com a parcela média histórica (12 meses, juros 1.5%)
+  const v=Math.round(PARAMS.parcelaEmCursoMes||0);if(!v)return;
+  PREV.eventos.push({mes:PREV.mesIni||'abr/26',tipo:'emp_out',valor:v,parcelas:12,pctJuros:1.5});
+  localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));
+  renderEventos();atualizarProjecao();
+};
 window.prevEvSet=function(i,k,v){PREV.eventos[i][k]=(k==='mes'||k==='tipo')?v:(+v||0);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));if(k==='tipo')renderEventos();atualizarProjecao();};
 window.prevEvDel=function(i){PREV.eventos.splice(i,1);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
 window.atualizarProjecao=function(){
@@ -3225,8 +3307,12 @@ window.atualizarProjecao=function(){
     const cxAc=r.reduce((s,x)=>s+x.caixaMes,0);
     const irAc=r.reduce((s,x)=>s+x.ir,0);
     const jurAc=r.reduce((s,x)=>s+x.juros,0);
+    const recAc=r.reduce((s,x)=>s+x.receita,0);
+    const opAc=r.reduce((s,x)=>s+x.caixaOp,0);
     const el=document.getElementById('kpi-'+k);if(!el)return;
     el.innerHTML=`<div style="display:grid;gap:3px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Receita 12m</span><strong>${fM(recAc)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Caixa Op 12m</span><strong class="${opAc<0?'bad':'good'}">${fM(opAc)}</strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Saldo final</span><strong class="${fim<0?'bad':'good'}">${fM(fim)}</strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Pior saldo</span><strong class="${pior.saldoAcum<0?'bad':''}">${fM(pior.saldoAcum)} <span style="font-weight:400;font-size:10px">(${pior.rot})</span></strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Δ Caixa 12m</span><strong class="${cxAc<0?'bad':'good'}">${fM(cxAc)}</strong></div>
@@ -3237,14 +3323,16 @@ window.atualizarProjecao=function(){
   // Tabela do cenário ativo
   const ra=res[PREV.ativo];const corA=cors[PREV.ativo];
   const sum=k=>ra.reduce((s,x)=>s+x[k],0);
-  const totReceita=sum('receita'),totCustos=sum('custosOp'),totImp=sum('impVendas'),
+  const totReceita=sum('receita'),totForn=sum('fornec'),totPess=sum('pessoal'),totAdm=sum('adm'),totTrib=sum('trib'),
         totJuros=sum('juros'),totIR=sum('ir'),totOp=sum('caixaOp'),
         totCap=sum('capex'),totEmp=sum('emp'),totCx=sum('caixaMes');
   const rows=ra.map(x=>`<tr>
     <td style="font-weight:700;padding:7px 10px">${x.rot}</td>
     <td class="cv">${fM(x.receita)}</td>
-    <td class="cv bad">${fM(-x.custosOp)}</td>
-    <td class="cv bad">${fM(-x.impVendas)}</td>
+    <td class="cv bad">${fM(-x.fornec)}</td>
+    <td class="cv bad">${fM(-x.pessoal)}</td>
+    <td class="cv bad">${fM(-x.adm)}</td>
+    <td class="cv bad">${fM(-x.trib)}</td>
     <td class="cv ${x.juros>0?'bad':''}">${x.juros?fM(-x.juros):'—'}</td>
     <td class="cv ${x.ir>0?'bad':''}">${x.ir?fM(-x.ir):'—'}</td>
     <td class="cv ${x.caixaOp>0?'good':'bad'}"><strong>${fM(x.caixaOp)}</strong></td>
@@ -3277,7 +3365,8 @@ window.atualizarProjecao=function(){
       <div class="twrap"><table>
         <thead><tr>
           <th style="text-align:left">Mês</th><th>Receita</th>
-          <th>(−)Custos Op</th><th>(−)Imp.Vendas</th><th>(−)Juros</th><th>(−)IR</th>
+          <th>(−)Fornec</th><th>(−)Pessoal</th><th>(−)Adm</th><th>(−)Tributos</th>
+          <th>(−)Juros</th><th>(−)IR</th>
           <th>Caixa Op.</th><th>(−)CAPEX</th><th>(±)Empréstimo</th>
           <th>Caixa Mês</th><th>Saldo Acum.</th>
         </tr></thead>
@@ -3285,8 +3374,10 @@ window.atualizarProjecao=function(){
         <tfoot><tr style="background:#f8fafc;font-weight:700">
           <td style="padding:8px 10px">TOTAL</td>
           <td class="cv">${fM(totReceita)}</td>
-          <td class="cv">${fM(-totCustos)}</td>
-          <td class="cv">${fM(-totImp)}</td>
+          <td class="cv">${fM(-totForn)}</td>
+          <td class="cv">${fM(-totPess)}</td>
+          <td class="cv">${fM(-totAdm)}</td>
+          <td class="cv">${fM(-totTrib)}</td>
           <td class="cv">${totJuros?fM(-totJuros):'—'}</td>
           <td class="cv">${totIR?fM(-totIR):'—'}</td>
           <td class="cv">${fM(totOp)}</td>
