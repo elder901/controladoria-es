@@ -2852,6 +2852,10 @@ async function renderBalP2(){
 let PARAMS={
   pctDeducoes:8.22,pctCMV:72.7,pctDespVar:4.7,despFixasMes:2208705,
   pctEbitda:6.5,pctLucroFin:2.3,pme:20,pmr:17,pmp:21,recLiqMedMes:13614346,
+  // Calibrados via Fluxo de Caixa (regime caixa)
+  pctCustosOp:90.5, pctImpostosVda:5.0, pctJuros:0.4, pctIR:0.6,
+  pctMargemCaixa:3.5, vlcMedioMes:13614346, capexMedioMes:0,
+  varCaixaMedio:0, nMesesFC:0,
 };
 async function calcularParams(){
   try{
@@ -2871,19 +2875,40 @@ async function calcularParams(){
         ebitda:dre.ebitda_tej||0,lucroFin:dre.resLucroLiq_tej||0,
         estoques:bp.estoques||0,clientes:bp.contasReceber||0,fornec:bp.fornecedores||0};
     }).filter(Boolean);
-    if(!validos.length)return;
-    const n=validos.length;const avg=k=>validos.reduce((s,d)=>s+(d[k]||0),0)/n;
-    PARAMS={
-      pctDeducoes:validos.reduce((s,d)=>s+(d.recBruta?((d.recBruta-d.recLiq)/d.recBruta*100):0),0)/n,
-      pctCMV:validos.reduce((s,d)=>s+(d.recLiq?d.cmv/d.recLiq*100:0),0)/n,
-      pctDespVar:validos.reduce((s,d)=>s+(d.recLiq?d.despVar/d.recLiq*100:0),0)/n,
-      despFixasMes:avg('despFixas'),pctEbitda:validos.reduce((s,d)=>s+(d.recLiq?d.ebitda/d.recLiq*100:0),0)/n,
-      pctLucroFin:validos.reduce((s,d)=>s+(d.recLiq?d.lucroFin/d.recLiq*100:0),0)/n,
-      pme:validos.reduce((s,d)=>s+(d.cmv>0?d.estoques/(d.cmv/30):0),0)/n,
-      pmr:validos.reduce((s,d)=>s+(d.recBruta>0?d.clientes/(d.recBruta/30):0),0)/n,
-      pmp:validos.reduce((s,d)=>s+(d.cmv>0?d.fornec/(d.cmv/30):0),0)/n,
-      recLiqMedMes:avg('recLiq'),
-    };
+    // Calibração contábil (mantida só pro Simulador da aba 1)
+    if(validos.length){
+      const n=validos.length;const avg=k=>validos.reduce((s,d)=>s+(d[k]||0),0)/n;
+      Object.assign(PARAMS,{
+        pctDeducoes:validos.reduce((s,d)=>s+(d.recBruta?((d.recBruta-d.recLiq)/d.recBruta*100):0),0)/n,
+        pctCMV:validos.reduce((s,d)=>s+(d.recLiq?d.cmv/d.recLiq*100:0),0)/n,
+        pctDespVar:validos.reduce((s,d)=>s+(d.recLiq?d.despVar/d.recLiq*100:0),0)/n,
+        despFixasMes:avg('despFixas'),pctEbitda:validos.reduce((s,d)=>s+(d.recLiq?d.ebitda/d.recLiq*100:0),0)/n,
+        pctLucroFin:validos.reduce((s,d)=>s+(d.recLiq?d.lucroFin/d.recLiq*100:0),0)/n,
+        pme:validos.reduce((s,d)=>s+(d.cmv>0?d.estoques/(d.cmv/30):0),0)/n,
+        pmr:validos.reduce((s,d)=>s+(d.recBruta>0?d.clientes/(d.recBruta/30):0),0)/n,
+        pmp:validos.reduce((s,d)=>s+(d.cmv>0?d.fornec/(d.cmv/30):0),0)/n,
+        recLiqMedMes:avg('recLiq'),
+      });
+    }
+    // === Calibração CAIXA (Projeção 12 Meses) — só Fluxo de Caixa Tejotão ===
+    const fc=fcDados.filter(Boolean).filter(d=>(d.vlc||0)>0);
+    if(fc.length){
+      const n=fc.length;
+      const sumPct=fn=>fc.reduce((s,d)=>s+fn(d),0)/n;
+      const A=Math.abs;
+      const custosOpLiq=d=>A(d.totCustos||0)-A(d.jurosEmprestimos||0); // tira juros pra não dobrar
+      Object.assign(PARAMS,{
+        pctCustosOp:    sumPct(d=>custosOpLiq(d)/d.vlc*100),
+        pctImpostosVda: sumPct(d=>(A(d.impostos||0)+A(d.despTrib||0)+A(d.despMult||0))/d.vlc*100),
+        pctJuros:       sumPct(d=>A(d.jurosEmprestimos||0)/d.vlc*100),
+        pctIR:          sumPct(d=>A(d.IR||0)/d.vlc*100),
+        pctMargemCaixa: sumPct(d=>(d.lucroLiq||0)/d.vlc*100),
+        vlcMedioMes:    fc.reduce((s,d)=>s+(d.vlc||0),0)/n,
+        capexMedioMes:  fc.reduce((s,d)=>s+A(d.imobilizado||0),0)/n,
+        varCaixaMedio:  fc.reduce((s,d)=>s+(d.varCaixa||0),0)/n,
+        nMesesFC:       n,
+      });
+    }
   }catch(e){console.log('Usando parâmetros padrão',e);}
 }
 async function renderPrevisao(){
@@ -3030,13 +3055,25 @@ async function renderProjecao12(){
   const fp=document.getElementById('fp');
   // Carrega estado persistido
   const ls=k=>{try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}};
-  const cenDefault={pess:{cresc:-1,dCMV:2,dFix:5},base:{cresc:1.5,dCMV:0,dFix:0},otim:{cresc:3,dCMV:-1,dFix:0}};
+  const cenDefault={
+    pess:{cresc:-1, dCustos:2,   dJuros:0.5,  dIR:0},
+    base:{cresc:1.5,dCustos:0,   dJuros:0,    dIR:0},
+    otim:{cresc:3,  dCustos:-1,  dJuros:-0.3, dIR:0},
+  };
+  // Migração: se vier cenário antigo no localStorage, converte
+  const cenLS=ls('prev:cenarios');
+  const cenMigr=cenLS?Object.fromEntries(Object.entries(cenLS).map(([k,v])=>[k,{
+    cresc:v.cresc??cenDefault[k].cresc,
+    dCustos:v.dCustos??v.dCMV??cenDefault[k].dCustos,
+    dJuros:v.dJuros??cenDefault[k].dJuros,
+    dIR:v.dIR??cenDefault[k].dIR,
+  }])):cenDefault;
   window.PREV={
     saldoIni: ls('prev:saldoIni') ?? 0,
-    base:     ls('prev:base')     ?? Math.round(PARAMS.recLiqMedMes),
+    base:     ls('prev:base')     ?? Math.round(PARAMS.vlcMedioMes||PARAMS.recLiqMedMes),
     mesIni:   ls('prev:mesIni')   ?? 'abr/26',
     ativo:    ls('prev:ativo')    ?? 'base',
-    cenarios: ls('prev:cenarios') ?? cenDefault,
+    cenarios: cenMigr,
     eventos:  ls('prev:eventos')  ?? [],
   };
   const opMes=['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27','fev/27','mar/27'];
@@ -3051,8 +3088,9 @@ async function renderProjecao12(){
       </div>
       <div style="display:grid;gap:6px;font-size:11px;color:var(--muted)">
         <div style="display:flex;justify-content:space-between;align-items:center">Crescimento %/m ${inp('c-'+k+'-cresc',c.cresc)}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">Δ CMV (pp) ${inp('c-'+k+'-dCMV',c.dCMV)}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">Δ Desp.Fixas % ${inp('c-'+k+'-dFix',c.dFix)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Custos Op (pp) ${inp('c-'+k+'-dCustos',c.dCustos)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Juros (pp) ${inp('c-'+k+'-dJuros',c.dJuros)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ IR (pp) ${inp('c-'+k+'-dIR',c.dIR)}</div>
       </div>
       <div id="kpi-${k}" style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;font-size:11px"></div>
     </div>`;
@@ -3060,17 +3098,26 @@ async function renderProjecao12(){
   fp.innerHTML=`
     <div class="section">
       <div class="shead"><h2>Projeção de Caixa 12 Meses</h2>
-        <span class="legend">Saldo inicial + EBITDA − ΔWC ± Eventos por cenário</span>
+        <span class="legend">Calibrado com ${PARAMS.nMesesFC||0} meses de Fluxo de Caixa (regime caixa) · Receita − Custos − Impostos − Juros − IR ± Eventos</span>
       </div>
       <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
         <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Saldo de Caixa Inicial (R$)</label>
           <input type="number" id="prev-saldo" value="${PREV.saldoIni}" oninput="prevSet('prev-saldo',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right"/></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Receita Líquida Base (R$/mês)</label>
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Receita Caixa Base (VLC R$/mês)</label>
           <input type="number" id="prev-base" value="${PREV.base}" oninput="prevSet('prev-base',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right"/></div>
         <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Mês de Início</label>
           <select id="prev-mesini" onchange="prevSet('prev-mesini',this.value)" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
             ${opMes.map(m=>`<option ${m===PREV.mesIni?'selected':''}>${m}</option>`).join('')}
           </select></div>
+      </div>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#1e40af">
+        <strong>Baseline histórico FC:</strong>
+        Custos Op ${(PARAMS.pctCustosOp||0).toFixed(1)}% ·
+        Imp.Vendas ${(PARAMS.pctImpostosVda||0).toFixed(1)}% ·
+        Juros ${(PARAMS.pctJuros||0).toFixed(2)}% ·
+        IR ${(PARAMS.pctIR||0).toFixed(2)}% ·
+        Margem caixa média ${(PARAMS.pctMargemCaixa||0).toFixed(1)}% ·
+        CAPEX médio ${fM(PARAMS.capexMedioMes||0)}/mês
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
         ${cenCol('pess','Pessimista','#dc2626')}
@@ -3096,62 +3143,76 @@ function renderEventos(){
   if(!PREV.eventos.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Nenhum evento. Adicione CAPEX, captação ou parcelas.</div>';return;}
   el.innerHTML=`<table style="width:100%;font-size:12px"><thead><tr style="color:var(--muted);font-size:10px;text-transform:uppercase">
     <th style="text-align:left;padding:4px">Mês</th><th style="text-align:left;padding:4px">Tipo</th>
-    <th style="text-align:right;padding:4px">Valor (R$)</th><th style="text-align:center;padding:4px;width:80px">Recorrência</th><th></th>
-  </tr></thead><tbody>${PREV.eventos.map((e,i)=>`<tr>
+    <th style="text-align:right;padding:4px">Valor (R$)</th>
+    <th style="text-align:center;padding:4px;width:80px">Parcelas</th>
+    <th style="text-align:center;padding:4px;width:80px">% Juros/m</th><th></th>
+  </tr></thead><tbody>${PREV.eventos.map((e,i)=>{
+    const ehEmp=e.tipo==='emp_out';
+    return `<tr>
     <td style="padding:4px"><select onchange="prevEvSet(${i},'mes',this.value)" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px">${opMes.map(m=>`<option ${m===e.mes?'selected':''}>${m}</option>`).join('')}</select></td>
     <td style="padding:4px"><select onchange="prevEvSet(${i},'tipo',this.value)" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px">${tipos.map(([v,l])=>`<option value="${v}" ${v===e.tipo?'selected':''}>${l}</option>`).join('')}</select></td>
-    <td style="padding:4px;text-align:right"><input type="number" value="${e.valor}" oninput="prevEvSet(${i},'valor',this.value)" style="width:120px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:right"/></td>
-    <td style="padding:4px;text-align:center"><input type="number" value="${e.parcelas||1}" min="1" oninput="prevEvSet(${i},'parcelas',this.value)" style="width:60px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:center" title="Nº de meses (apenas para parcelas)"/></td>
+    <td style="padding:4px;text-align:right"><input type="number" value="${e.valor}" oninput="prevEvSet(${i},'valor',this.value)" style="width:120px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:right" title="${ehEmp?'Valor da parcela mensal':'Valor total do evento'}"/></td>
+    <td style="padding:4px;text-align:center"><input type="number" value="${e.parcelas||1}" min="1" oninput="prevEvSet(${i},'parcelas',this.value)" style="width:60px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:center" ${ehEmp?'':'disabled'} title="Nº de parcelas (só empréstimo parcela)"/></td>
+    <td style="padding:4px;text-align:center"><input type="number" step="0.1" value="${e.pctJuros??1.5}" oninput="prevEvSet(${i},'pctJuros',this.value)" style="width:60px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:center" ${ehEmp?'':'disabled'} title="% juros mensal sobre saldo devedor"/></td>
     <td style="padding:4px;text-align:center"><button onclick="prevEvDel(${i})" style="border:none;background:transparent;cursor:pointer;color:var(--bad);font-size:14px">🗑️</button></td>
-  </tr>`).join('')}</tbody></table>`;
+  </tr>`;}).join('')}</tbody></table>`;
 }
 function calcCenario(cen){
   const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   const[mesStr,anoStr]=PREV.mesIni.split('/');
   let iMes=meses.indexOf(mesStr),iAno=parseInt('20'+anoStr);
-  // Expande eventos -> mapa { 'abr/26': {capex:X, emp:Y} }
+  // Expande eventos -> mapa { 'abr/26': {capex, emp, jurosExtra} }
+  // Para emp_out: amortiza saldo devedor (PV ≈ parcela × parcelas), separando juros do principal
   const evMap={};
+  const addEv=(k,patch)=>{if(!evMap[k])evMap[k]={capex:0,emp:0,jurosExtra:0};Object.entries(patch).forEach(([kk,vv])=>evMap[k][kk]+=vv);};
   PREV.eventos.forEach(e=>{
-    const v=+e.valor||0;const par=Math.max(1,+e.parcelas||1);
+    const v=+e.valor||0;
     const[em,ea]=e.mes.split('/');let mi=meses.indexOf(em),ai=parseInt('20'+ea);
-    for(let p=0;p<(e.tipo==='emp_out'?par:1);p++){
+    const k0=meses[mi]+'/'+String(ai).slice(2);
+    if(e.tipo==='capex'){addEv(k0,{capex:v});return;}
+    if(e.tipo==='emp_in'){addEv(k0,{emp:v});return;}
+    // emp_out: simulação Price simplificada (parcela fixa, saldo decrescente)
+    const par=Math.max(1,+e.parcelas||1);
+    const taxa=(+e.pctJuros||0)/100;
+    let saldoDev=v*par; // proxy de PV inicial
+    for(let p=0;p<par;p++){
       const k=meses[mi]+'/'+String(ai).slice(2);
-      if(!evMap[k])evMap[k]={capex:0,emp:0};
-      if(e.tipo==='capex')evMap[k].capex+=v;
-      else if(e.tipo==='emp_in')evMap[k].emp+=v;
-      else evMap[k].emp-=v;
+      const juros=Math.max(0,saldoDev*taxa);
+      const amort=Math.max(0,v-juros);
+      saldoDev=Math.max(0,saldoDev-amort);
+      addEv(k,{emp:-v, jurosExtra:juros}); // caixa: -parcela total; juros separado pra display/IR
       mi=(mi+1)%12;if(mi===0)ai++;
     }
   });
-  const ciclo=PARAMS.pme+PARAMS.pmr-PARAMS.pmp;
-  const rows=[];let saldoAcum=PREV.saldoIni;let recPrev=PREV.base;
+  const rows=[];let saldoAcum=PREV.saldoIni;
+  const capexBase=PARAMS.capexMedioMes||0;
   for(let i=0;i<12;i++){
-    const recLiq=PREV.base*Math.pow(1+cen.cresc/100,i);
-    const cmv=recLiq*(PARAMS.pctCMV+cen.dCMV)/100;
-    const despVar=recLiq*PARAMS.pctDespVar/100;
-    const despFix=PARAMS.despFixasMes*(1+cen.dFix/100);
-    const ebitda=recLiq-cmv-despVar-despFix;
-    const dWC=i===0?0:(recLiq-recPrev)/30*ciclo;
+    const receita=PREV.base*Math.pow(1+cen.cresc/100,i);
+    const custosOp=receita*(Math.abs(PARAMS.pctCustosOp||0)+(cen.dCustos||0))/100;
+    const impVendas=receita*Math.abs(PARAMS.pctImpostosVda||0)/100;
     const rot=meses[iMes]+'/'+String(iAno).slice(2);
     iMes=(iMes+1)%12;if(iMes===0)iAno++;
-    const ev=evMap[rot]||{capex:0,emp:0};
-    const opCaixa=ebitda-dWC;
-    const caixaMes=opCaixa-ev.capex+ev.emp;
+    const ev=evMap[rot]||{capex:0,emp:0,jurosExtra:0};
+    const jurosBase=receita*Math.max(0,(Math.abs(PARAMS.pctJuros||0)+(cen.dJuros||0)))/100;
+    const juros=jurosBase+ev.jurosExtra;
+    const ir=Math.max(0,receita*(Math.abs(PARAMS.pctIR||0)+(cen.dIR||0))/100);
+    const caixaOp=receita-custosOp-impVendas-juros-ir;
+    const capex=capexBase+ev.capex;
+    const caixaMes=caixaOp-capex+ev.emp;
     saldoAcum+=caixaMes;
-    rows.push({rot,recLiq,ebitda,dWC,opCaixa,capex:ev.capex,emp:ev.emp,caixaMes,saldoAcum});
-    recPrev=recLiq;
+    rows.push({rot,receita,custosOp,impVendas,juros,ir,caixaOp,capex,emp:ev.emp,caixaMes,saldoAcum});
   }
   return rows;
 }
 window.prevSet=function(id,v){
   const map={'prev-saldo':'saldoIni','prev-base':'base','prev-mesini':'mesIni'};
   if(map[id]){PREV[map[id]]=id==='prev-mesini'?v:(+v||0);localStorage.setItem('prev:'+map[id],JSON.stringify(PREV[map[id]]));}
-  else{const m=id.match(/^c-(pess|base|otim)-(cresc|dCMV|dFix)$/);if(m){PREV.cenarios[m[1]][m[2]]=+v||0;localStorage.setItem('prev:cenarios',JSON.stringify(PREV.cenarios));}}
+  else{const m=id.match(/^c-(pess|base|otim)-(cresc|dCustos|dJuros|dIR)$/);if(m){PREV.cenarios[m[1]][m[2]]=+v||0;localStorage.setItem('prev:cenarios',JSON.stringify(PREV.cenarios));}}
   atualizarProjecao();
 };
 window.prevAtivar=function(k){PREV.ativo=k;localStorage.setItem('prev:ativo',JSON.stringify(k));renderProjecao12();};
-window.prevAddEv=function(){PREV.eventos.push({mes:'jun/26',tipo:'capex',valor:100000,parcelas:1});localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
-window.prevEvSet=function(i,k,v){PREV.eventos[i][k]=k==='mes'||k==='tipo'?v:(+v||0);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));atualizarProjecao();};
+window.prevAddEv=function(){PREV.eventos.push({mes:'jun/26',tipo:'capex',valor:100000,parcelas:1,pctJuros:1.5});localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
+window.prevEvSet=function(i,k,v){PREV.eventos[i][k]=(k==='mes'||k==='tipo')?v:(+v||0);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));if(k==='tipo')renderEventos();atualizarProjecao();};
 window.prevEvDel=function(i){PREV.eventos.splice(i,1);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
 window.atualizarProjecao=function(){
   if(!window.PREV)return;
@@ -3161,26 +3222,32 @@ window.atualizarProjecao=function(){
   ['pess','base','otim'].forEach(k=>{
     const r=res[k];const fim=r[r.length-1].saldoAcum;
     let pior=r[0],piorIdx=0;r.forEach((x,i)=>{if(x.saldoAcum<pior.saldoAcum){pior=x;piorIdx=i;}});
-    const ebAc=r.reduce((s,x)=>s+x.ebitda,0);const cxAc=r.reduce((s,x)=>s+x.caixaMes,0);
+    const cxAc=r.reduce((s,x)=>s+x.caixaMes,0);
+    const irAc=r.reduce((s,x)=>s+x.ir,0);
+    const jurAc=r.reduce((s,x)=>s+x.juros,0);
     const el=document.getElementById('kpi-'+k);if(!el)return;
     el.innerHTML=`<div style="display:grid;gap:3px">
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Saldo final</span><strong class="${fim<0?'bad':'good'}">${fM(fim)}</strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Pior saldo</span><strong class="${pior.saldoAcum<0?'bad':''}">${fM(pior.saldoAcum)} <span style="font-weight:400;font-size:10px">(${pior.rot})</span></strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Δ Caixa 12m</span><strong class="${cxAc<0?'bad':'good'}">${fM(cxAc)}</strong></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">EBITDA acum</span><strong>${fM(ebAc)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">IR pago 12m</span><strong>${fM(irAc)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Juros pagos 12m</span><strong>${fM(jurAc)}</strong></div>
     </div>`;
   });
   // Tabela do cenário ativo
   const ra=res[PREV.ativo];const corA=cors[PREV.ativo];
-  const totRL=ra.reduce((s,x)=>s+x.recLiq,0);const totEB=ra.reduce((s,x)=>s+x.ebitda,0);
-  const totWC=ra.reduce((s,x)=>s+x.dWC,0);const totCap=ra.reduce((s,x)=>s+x.capex,0);
-  const totEmp=ra.reduce((s,x)=>s+x.emp,0);const totCx=ra.reduce((s,x)=>s+x.caixaMes,0);
+  const sum=k=>ra.reduce((s,x)=>s+x[k],0);
+  const totReceita=sum('receita'),totCustos=sum('custosOp'),totImp=sum('impVendas'),
+        totJuros=sum('juros'),totIR=sum('ir'),totOp=sum('caixaOp'),
+        totCap=sum('capex'),totEmp=sum('emp'),totCx=sum('caixaMes');
   const rows=ra.map(x=>`<tr>
     <td style="font-weight:700;padding:7px 10px">${x.rot}</td>
-    <td class="cv">${fM(x.recLiq)}</td>
-    <td class="cv ${x.ebitda>0?'good':'bad'}">${fM(x.ebitda)}</td>
-    <td class="cv ${x.dWC<=0?'good':'bad'}">${fM(-x.dWC)}</td>
-    <td class="cv">${fM(x.opCaixa)}</td>
+    <td class="cv">${fM(x.receita)}</td>
+    <td class="cv bad">${fM(-x.custosOp)}</td>
+    <td class="cv bad">${fM(-x.impVendas)}</td>
+    <td class="cv ${x.juros>0?'bad':''}">${x.juros?fM(-x.juros):'—'}</td>
+    <td class="cv ${x.ir>0?'bad':''}">${x.ir?fM(-x.ir):'—'}</td>
+    <td class="cv ${x.caixaOp>0?'good':'bad'}"><strong>${fM(x.caixaOp)}</strong></td>
     <td class="cv ${x.capex?'bad':''}">${x.capex?fM(-x.capex):'—'}</td>
     <td class="cv ${x.emp>0?'good':x.emp<0?'bad':''}">${x.emp?fM(x.emp):'—'}</td>
     <td class="cv ${x.caixaMes>0?'good':'bad'}"><strong>${fM(x.caixaMes)}</strong></td>
@@ -3205,20 +3272,26 @@ window.atualizarProjecao=function(){
   document.getElementById('prev-resultado').innerHTML=`
     <div class="section" style="border-top:4px solid ${corA};margin-bottom:14px">
       <div class="shead"><h2>Cenário ${PREV.ativo==='pess'?'Pessimista':PREV.ativo==='base'?'Base':'Otimista'} — mês a mês</h2>
-        <span class="legend">Saldo inicial: ${fM(PREV.saldoIni)} · Ciclo: ${(PARAMS.pme+PARAMS.pmr-PARAMS.pmp).toFixed(0)}d</span>
+        <span class="legend">Saldo inicial: ${fM(PREV.saldoIni)} · Tudo em regime caixa (FC)</span>
       </div>
       <div class="twrap"><table>
         <thead><tr>
-          <th style="text-align:left">Mês</th><th>Rec.Líquida</th><th>EBITDA</th>
-          <th>(−)ΔWC</th><th>Caixa Op.</th><th>(−)CAPEX</th><th>(±)Empréstimo</th>
+          <th style="text-align:left">Mês</th><th>Receita</th>
+          <th>(−)Custos Op</th><th>(−)Imp.Vendas</th><th>(−)Juros</th><th>(−)IR</th>
+          <th>Caixa Op.</th><th>(−)CAPEX</th><th>(±)Empréstimo</th>
           <th>Caixa Mês</th><th>Saldo Acum.</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr style="background:#f8fafc;font-weight:700">
           <td style="padding:8px 10px">TOTAL</td>
-          <td class="cv">${fM(totRL)}</td><td class="cv">${fM(totEB)}</td>
-          <td class="cv">${fM(-totWC)}</td><td class="cv">${fM(totEB-totWC)}</td>
-          <td class="cv">${totCap?fM(-totCap):'—'}</td><td class="cv">${totEmp?fM(totEmp):'—'}</td>
+          <td class="cv">${fM(totReceita)}</td>
+          <td class="cv">${fM(-totCustos)}</td>
+          <td class="cv">${fM(-totImp)}</td>
+          <td class="cv">${totJuros?fM(-totJuros):'—'}</td>
+          <td class="cv">${totIR?fM(-totIR):'—'}</td>
+          <td class="cv">${fM(totOp)}</td>
+          <td class="cv">${totCap?fM(-totCap):'—'}</td>
+          <td class="cv">${totEmp?fM(totEmp):'—'}</td>
           <td class="cv">${fM(totCx)}</td><td class="cv">${fM(ra[ra.length-1].saldoAcum)}</td>
         </tr></tfoot>
       </table></div>
