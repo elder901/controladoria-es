@@ -3028,72 +3028,210 @@ window.atualizarSimulador=function(){
 };
 async function renderProjecao12(){
   const fp=document.getElementById('fp');
+  // Carrega estado persistido
+  const ls=k=>{try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}};
+  const cenDefault={pess:{cresc:-1,dCMV:2,dFix:5},base:{cresc:1.5,dCMV:0,dFix:0},otim:{cresc:3,dCMV:-1,dFix:0}};
+  window.PREV={
+    saldoIni: ls('prev:saldoIni') ?? 0,
+    base:     ls('prev:base')     ?? Math.round(PARAMS.recLiqMedMes),
+    mesIni:   ls('prev:mesIni')   ?? 'abr/26',
+    ativo:    ls('prev:ativo')    ?? 'base',
+    cenarios: ls('prev:cenarios') ?? cenDefault,
+    eventos:  ls('prev:eventos')  ?? [],
+  };
+  const opMes=['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27','fev/27','mar/27'];
+  const inp=(id,val,w)=>`<input type="number" id="${id}" value="${val}" step="0.5" oninput="prevSet('${id}',this.value)" style="width:${w||80}px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:right"/>`;
+  const cenCol=(k,nome,cor)=>{
+    const c=PREV.cenarios[k];
+    const ativo=PREV.ativo===k;
+    return `<div style="border:2px solid ${ativo?cor:'#e2e8f0'};border-radius:12px;padding:12px;background:${ativo?cor+'10':'#fff'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <strong style="color:${cor};font-size:13px">${nome}</strong>
+        <button onclick="prevAtivar('${k}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid ${cor};background:${ativo?cor:'#fff'};color:${ativo?'#fff':cor};cursor:pointer;font-weight:700">${ativo?'ATIVO':'Ativar'}</button>
+      </div>
+      <div style="display:grid;gap:6px;font-size:11px;color:var(--muted)">
+        <div style="display:flex;justify-content:space-between;align-items:center">Crescimento %/m ${inp('c-'+k+'-cresc',c.cresc)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ CMV (pp) ${inp('c-'+k+'-dCMV',c.dCMV)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">Δ Desp.Fixas % ${inp('c-'+k+'-dFix',c.dFix)}</div>
+      </div>
+      <div id="kpi-${k}" style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;font-size:11px"></div>
+    </div>`;
+  };
   fp.innerHTML=`
     <div class="section">
-      <div class="shead"><h2>Projeção 12 Meses</h2></div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Receita Base (R$)</label>
-          <input type="number" id="proj-base" value="${Math.round(PARAMS.recLiqMedMes)}"
-            style="padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;width:200px;text-align:right"
-            oninput="atualizarProjecao()"/></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Crescimento mensal %</label>
-          <input type="number" id="proj-cresc" value="1.5" step="0.5"
-            style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:140px;text-align:right"
-            oninput="atualizarProjecao()"/></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Mês de início</label>
-          <select id="proj-mesini" onchange="atualizarProjecao()" style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
-            ${['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27'].map(m=>`<option>${m}</option>`).join('')}
+      <div class="shead"><h2>Projeção de Caixa 12 Meses</h2>
+        <span class="legend">Saldo inicial + EBITDA − ΔWC ± Eventos por cenário</span>
+      </div>
+      <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Saldo de Caixa Inicial (R$)</label>
+          <input type="number" id="prev-saldo" value="${PREV.saldoIni}" oninput="prevSet('prev-saldo',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right"/></div>
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Receita Líquida Base (R$/mês)</label>
+          <input type="number" id="prev-base" value="${PREV.base}" oninput="prevSet('prev-base',this.value)" style="width:100%;padding:9px 12px;border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;text-align:right"/></div>
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Mês de Início</label>
+          <select id="prev-mesini" onchange="prevSet('prev-mesini',this.value)" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px">
+            ${opMes.map(m=>`<option ${m===PREV.mesIni?'selected':''}>${m}</option>`).join('')}
           </select></div>
       </div>
-      <div id="proj-resultado"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        ${cenCol('pess','Pessimista','#dc2626')}
+        ${cenCol('base','Base','#2563eb')}
+        ${cenCol('otim','Otimista','#16a34a')}
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:13px">📅 Eventos Programados (CAPEX e Empréstimos)</strong>
+          <button onclick="prevAddEv()" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:700">+ Adicionar evento</button>
+        </div>
+        <div id="prev-eventos"></div>
+      </div>
+      <div id="prev-resultado"></div>
     </div>`;
+  renderEventos();
   atualizarProjecao();
 }
-window.atualizarProjecao=function(){
-  const base=parseFloat(document.getElementById('proj-base')?.value)||PARAMS.recLiqMedMes;
-  const cresc=parseFloat(document.getElementById('proj-cresc')?.value)||0;
-  const mesIni=document.getElementById('proj-mesini')?.value||'abr/26';
+function renderEventos(){
+  const opMes=['abr/26','mai/26','jun/26','jul/26','ago/26','set/26','out/26','nov/26','dez/26','jan/27','fev/27','mar/27','abr/27','mai/27','jun/27','jul/27','ago/27','set/27','out/27','nov/27','dez/27','jan/28','fev/28','mar/28'];
+  const tipos=[['capex','CAPEX (saída)'],['emp_in','Empréstimo entrada'],['emp_out','Empréstimo parcela']];
+  const el=document.getElementById('prev-eventos');
+  if(!PREV.eventos.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Nenhum evento. Adicione CAPEX, captação ou parcelas.</div>';return;}
+  el.innerHTML=`<table style="width:100%;font-size:12px"><thead><tr style="color:var(--muted);font-size:10px;text-transform:uppercase">
+    <th style="text-align:left;padding:4px">Mês</th><th style="text-align:left;padding:4px">Tipo</th>
+    <th style="text-align:right;padding:4px">Valor (R$)</th><th style="text-align:center;padding:4px;width:80px">Recorrência</th><th></th>
+  </tr></thead><tbody>${PREV.eventos.map((e,i)=>`<tr>
+    <td style="padding:4px"><select onchange="prevEvSet(${i},'mes',this.value)" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px">${opMes.map(m=>`<option ${m===e.mes?'selected':''}>${m}</option>`).join('')}</select></td>
+    <td style="padding:4px"><select onchange="prevEvSet(${i},'tipo',this.value)" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px">${tipos.map(([v,l])=>`<option value="${v}" ${v===e.tipo?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td style="padding:4px;text-align:right"><input type="number" value="${e.valor}" oninput="prevEvSet(${i},'valor',this.value)" style="width:120px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:right"/></td>
+    <td style="padding:4px;text-align:center"><input type="number" value="${e.parcelas||1}" min="1" oninput="prevEvSet(${i},'parcelas',this.value)" style="width:60px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:center" title="Nº de meses (apenas para parcelas)"/></td>
+    <td style="padding:4px;text-align:center"><button onclick="prevEvDel(${i})" style="border:none;background:transparent;cursor:pointer;color:var(--bad);font-size:14px">🗑️</button></td>
+  </tr>`).join('')}</tbody></table>`;
+}
+function calcCenario(cen){
   const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const[mesStr,anoStr]=mesIni.split('/');
-  let iMes=meses.indexOf(mesStr);let iAno=parseInt('20'+anoStr);
-  let caixaAcum=0,rows='',totalRL=0,totalEB=0,totalLL=0,totalCX=0;
+  const[mesStr,anoStr]=PREV.mesIni.split('/');
+  let iMes=meses.indexOf(mesStr),iAno=parseInt('20'+anoStr);
+  // Expande eventos -> mapa { 'abr/26': {capex:X, emp:Y} }
+  const evMap={};
+  PREV.eventos.forEach(e=>{
+    const v=+e.valor||0;const par=Math.max(1,+e.parcelas||1);
+    const[em,ea]=e.mes.split('/');let mi=meses.indexOf(em),ai=parseInt('20'+ea);
+    for(let p=0;p<(e.tipo==='emp_out'?par:1);p++){
+      const k=meses[mi]+'/'+String(ai).slice(2);
+      if(!evMap[k])evMap[k]={capex:0,emp:0};
+      if(e.tipo==='capex')evMap[k].capex+=v;
+      else if(e.tipo==='emp_in')evMap[k].emp+=v;
+      else evMap[k].emp-=v;
+      mi=(mi+1)%12;if(mi===0)ai++;
+    }
+  });
+  const ciclo=PARAMS.pme+PARAMS.pmr-PARAMS.pmp;
+  const rows=[];let saldoAcum=PREV.saldoIni;let recPrev=PREV.base;
   for(let i=0;i<12;i++){
-    const recLiq=base*Math.pow(1+cresc/100,i);
-    const cmv=recLiq*PARAMS.pctCMV/100;
+    const recLiq=PREV.base*Math.pow(1+cen.cresc/100,i);
+    const cmv=recLiq*(PARAMS.pctCMV+cen.dCMV)/100;
     const despVar=recLiq*PARAMS.pctDespVar/100;
-    const ebitda=recLiq-cmv-despVar-PARAMS.despFixasMes;
-    const lucro=ebitda*(PARAMS.pctLucroFin/PARAMS.pctEbitda||1);
-    caixaAcum+=ebitda;totalRL+=recLiq;totalEB+=ebitda;totalLL+=lucro;totalCX+=ebitda;
+    const despFix=PARAMS.despFixasMes*(1+cen.dFix/100);
+    const ebitda=recLiq-cmv-despVar-despFix;
+    const dWC=i===0?0:(recLiq-recPrev)/30*ciclo;
     const rot=meses[iMes]+'/'+String(iAno).slice(2);
     iMes=(iMes+1)%12;if(iMes===0)iAno++;
-    rows+=`<tr>
-      <td style="font-weight:700;padding:7px 10px">${rot}</td>
-      <td class="cv">${fM(recLiq)}</td><td class="cv">${fM(cmv)}</td>
-      <td class="cv">${fM(recLiq-cmv-despVar)}</td><td class="cv">${fM(ebitda)}</td>
-      <td class="cv ${ebitda>0?'good':'bad'}">${fPS(ebitda/recLiq*100,1)}%</td>
-      <td class="cv ${lucro>0?'good':'bad'}">${fM(lucro)}</td>
-      <td class="cv ${ebitda>0?'good':'bad'}">${fM(ebitda)}</td>
-      <td class="cv ${caixaAcum>0?'good':'bad'}">${fM(caixaAcum)}</td>
-    </tr>`;
+    const ev=evMap[rot]||{capex:0,emp:0};
+    const opCaixa=ebitda-dWC;
+    const caixaMes=opCaixa-ev.capex+ev.emp;
+    saldoAcum+=caixaMes;
+    rows.push({rot,recLiq,ebitda,dWC,opCaixa,capex:ev.capex,emp:ev.emp,caixaMes,saldoAcum});
+    recPrev=recLiq;
   }
-  document.getElementById('proj-resultado').innerHTML=`
-    <div class="cards" style="margin-bottom:14px">
-      ${[{t:'Receita Líquida Total',v:totalRL},{t:'EBITDA Total',v:totalEB},
-         {t:'Lucro Líquido Total',v:totalLL},{t:'Caixa Total',v:totalCX}]
-        .map(it=>`<div class="kcard" style="min-height:0;padding:12px">
-          <h3>${it.t}</h3>
-          <div class="kval" style="font-size:20px">${fM(it.v)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">Média: ${fM(it.v/12)}/mês</div>
-        </div>`).join('')}
+  return rows;
+}
+window.prevSet=function(id,v){
+  const map={'prev-saldo':'saldoIni','prev-base':'base','prev-mesini':'mesIni'};
+  if(map[id]){PREV[map[id]]=id==='prev-mesini'?v:(+v||0);localStorage.setItem('prev:'+map[id],JSON.stringify(PREV[map[id]]));}
+  else{const m=id.match(/^c-(pess|base|otim)-(cresc|dCMV|dFix)$/);if(m){PREV.cenarios[m[1]][m[2]]=+v||0;localStorage.setItem('prev:cenarios',JSON.stringify(PREV.cenarios));}}
+  atualizarProjecao();
+};
+window.prevAtivar=function(k){PREV.ativo=k;localStorage.setItem('prev:ativo',JSON.stringify(k));renderProjecao12();};
+window.prevAddEv=function(){PREV.eventos.push({mes:'jun/26',tipo:'capex',valor:100000,parcelas:1});localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
+window.prevEvSet=function(i,k,v){PREV.eventos[i][k]=k==='mes'||k==='tipo'?v:(+v||0);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));atualizarProjecao();};
+window.prevEvDel=function(i){PREV.eventos.splice(i,1);localStorage.setItem('prev:eventos',JSON.stringify(PREV.eventos));renderEventos();atualizarProjecao();};
+window.atualizarProjecao=function(){
+  if(!window.PREV)return;
+  const cors={pess:'#dc2626',base:'#2563eb',otim:'#16a34a'};
+  const res={};['pess','base','otim'].forEach(k=>res[k]=calcCenario(PREV.cenarios[k]));
+  // KPIs por cenário
+  ['pess','base','otim'].forEach(k=>{
+    const r=res[k];const fim=r[r.length-1].saldoAcum;
+    let pior=r[0],piorIdx=0;r.forEach((x,i)=>{if(x.saldoAcum<pior.saldoAcum){pior=x;piorIdx=i;}});
+    const ebAc=r.reduce((s,x)=>s+x.ebitda,0);const cxAc=r.reduce((s,x)=>s+x.caixaMes,0);
+    const el=document.getElementById('kpi-'+k);if(!el)return;
+    el.innerHTML=`<div style="display:grid;gap:3px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Saldo final</span><strong class="${fim<0?'bad':'good'}">${fM(fim)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Pior saldo</span><strong class="${pior.saldoAcum<0?'bad':''}">${fM(pior.saldoAcum)} <span style="font-weight:400;font-size:10px">(${pior.rot})</span></strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Δ Caixa 12m</span><strong class="${cxAc<0?'bad':'good'}">${fM(cxAc)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">EBITDA acum</span><strong>${fM(ebAc)}</strong></div>
+    </div>`;
+  });
+  // Tabela do cenário ativo
+  const ra=res[PREV.ativo];const corA=cors[PREV.ativo];
+  const totRL=ra.reduce((s,x)=>s+x.recLiq,0);const totEB=ra.reduce((s,x)=>s+x.ebitda,0);
+  const totWC=ra.reduce((s,x)=>s+x.dWC,0);const totCap=ra.reduce((s,x)=>s+x.capex,0);
+  const totEmp=ra.reduce((s,x)=>s+x.emp,0);const totCx=ra.reduce((s,x)=>s+x.caixaMes,0);
+  const rows=ra.map(x=>`<tr>
+    <td style="font-weight:700;padding:7px 10px">${x.rot}</td>
+    <td class="cv">${fM(x.recLiq)}</td>
+    <td class="cv ${x.ebitda>0?'good':'bad'}">${fM(x.ebitda)}</td>
+    <td class="cv ${x.dWC<=0?'good':'bad'}">${fM(-x.dWC)}</td>
+    <td class="cv">${fM(x.opCaixa)}</td>
+    <td class="cv ${x.capex?'bad':''}">${x.capex?fM(-x.capex):'—'}</td>
+    <td class="cv ${x.emp>0?'good':x.emp<0?'bad':''}">${x.emp?fM(x.emp):'—'}</td>
+    <td class="cv ${x.caixaMes>0?'good':'bad'}"><strong>${fM(x.caixaMes)}</strong></td>
+    <td class="cv ${x.saldoAcum<0?'bad':'good'}" style="background:${x.saldoAcum<0?'#fee2e2':'#dcfce7'}"><strong>${fM(x.saldoAcum)}</strong></td>
+  </tr>`).join('');
+  // Gráfico SVG comparando 3 cenários
+  const allVals=[];['pess','base','otim'].forEach(k=>res[k].forEach(x=>allVals.push(x.saldoAcum)));
+  allVals.push(PREV.saldoIni,0);
+  const vMin=Math.min(...allVals),vMax=Math.max(...allVals);const range=vMax-vMin||1;
+  const W=800,H=240,pad=40;
+  const xAt=i=>pad+i*(W-pad*2)/12;const yAt=v=>H-pad-(v-vMin)/range*(H-pad*2);
+  const linha=(k,cor)=>{const r=res[k];const pts=[[xAt(0),yAt(PREV.saldoIni)],...r.map((x,i)=>[xAt(i+1),yAt(x.saldoAcum)])];return `<polyline fill="none" stroke="${cor}" stroke-width="${k===PREV.ativo?3:1.5}" stroke-opacity="${k===PREV.ativo?1:0.5}" points="${pts.map(p=>p.join(',')).join(' ')}"/>`;};
+  const zeroY=yAt(0);
+  const svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${vMin<0&&vMax>0?`<line x1="${pad}" y1="${zeroY}" x2="${W-pad}" y2="${zeroY}" stroke="#94a3b8" stroke-dasharray="4 4"/>`:''}
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#cbd5e1"/>
+    ${ra.map((x,i)=>`<text x="${xAt(i+1)}" y="${H-pad+14}" text-anchor="middle" font-size="9" fill="#64748b">${x.rot}</text>`).join('')}
+    <text x="${pad-4}" y="${yAt(vMax)+4}" text-anchor="end" font-size="10" fill="#64748b">${fM(vMax)}</text>
+    <text x="${pad-4}" y="${yAt(vMin)+4}" text-anchor="end" font-size="10" fill="#64748b">${fM(vMin)}</text>
+    ${linha('pess','#dc2626')}${linha('base','#2563eb')}${linha('otim','#16a34a')}
+  </svg>`;
+  document.getElementById('prev-resultado').innerHTML=`
+    <div class="section" style="border-top:4px solid ${corA};margin-bottom:14px">
+      <div class="shead"><h2>Cenário ${PREV.ativo==='pess'?'Pessimista':PREV.ativo==='base'?'Base':'Otimista'} — mês a mês</h2>
+        <span class="legend">Saldo inicial: ${fM(PREV.saldoIni)} · Ciclo: ${(PARAMS.pme+PARAMS.pmr-PARAMS.pmp).toFixed(0)}d</span>
+      </div>
+      <div class="twrap"><table>
+        <thead><tr>
+          <th style="text-align:left">Mês</th><th>Rec.Líquida</th><th>EBITDA</th>
+          <th>(−)ΔWC</th><th>Caixa Op.</th><th>(−)CAPEX</th><th>(±)Empréstimo</th>
+          <th>Caixa Mês</th><th>Saldo Acum.</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#f8fafc;font-weight:700">
+          <td style="padding:8px 10px">TOTAL</td>
+          <td class="cv">${fM(totRL)}</td><td class="cv">${fM(totEB)}</td>
+          <td class="cv">${fM(-totWC)}</td><td class="cv">${fM(totEB-totWC)}</td>
+          <td class="cv">${totCap?fM(-totCap):'—'}</td><td class="cv">${totEmp?fM(totEmp):'—'}</td>
+          <td class="cv">${fM(totCx)}</td><td class="cv">${fM(ra[ra.length-1].saldoAcum)}</td>
+        </tr></tfoot>
+      </table></div>
     </div>
-    <div class="twrap"><table>
-      <thead><tr>
-        <th style="text-align:left">Mês</th><th>Rec. Líquida</th><th>CMV</th>
-        <th>Marg.Contrib.</th><th>EBITDA</th><th>Margem%</th>
-        <th>Lucro Liq.</th><th>Caixa Mês</th><th>Caixa Acum.</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
+    <div class="section">
+      <div class="shead"><h2>Saldo de Caixa Acumulado — 3 cenários</h2></div>
+      <div style="display:flex;gap:16px;font-size:12px;margin-bottom:8px">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;vertical-align:middle"></span> Pessimista</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#2563eb;border-radius:2px;vertical-align:middle"></span> Base</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;vertical-align:middle"></span> Otimista</span>
+      </div>
+      ${svg}
+    </div>`;
 };
 
 // ============================================================
