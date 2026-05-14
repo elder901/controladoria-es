@@ -2435,7 +2435,8 @@ let intelP3 = {
   ini:null, fim:null,
 };
 const GRANDEZAS_P3 = [
-  {id:'totVendas', label:'Faturamento (Total Vendas)',  fmt:'m', cor:'#1d4ed8'},
+  {id:'recBrutaEfetiva', label:'Receita Bruta Efetiva (Produtos)', fmt:'m', cor:'#1d4ed8'},
+  {id:'totVendas', label:'Faturamento Recebido (Caixa)', fmt:'m', cor:'#7c3aed'},
   {id:'vlc',       label:'Vendas Líquidas em Caixa',    fmt:'m', cor:'#0ea5e9'},
   {id:'margemV',   label:'Margem de Venda (R$)',        fmt:'m', cor:'#10b981'},
   {id:'pctMargem', label:'% Margem (margem/VLC)',       fmt:'p', cor:'#15803d'},
@@ -2455,21 +2456,34 @@ function valorGrandeza(d, gid){
   return d[gid] ?? 0;
 }
 async function getDadosCompP3(empresa){
+  // Helper: injeta campos do DRE (competência) nos registros do FC por rot
+  async function mergeDRE(fcArr){
+    try{
+      const dre=await getDadosDRE();
+      const mapa={}; for(const d of dre){ if(d&&d.rot) mapa[d.rot]=d; }
+      const CAMPOS_DRE=['recBruta','recBrutaEfetiva','recLiq'];
+      for(const f of fcArr){
+        const dd=mapa[f.rot]; if(!dd) continue;
+        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c]||0; }
+      }
+    }catch(e){ /* DRE pode não existir para alguma empresa */ }
+    return fcArr;
+  }
   // FC para todas as empresas (existe operacional + holding)
   if(empresa==='tejotao'){
     const d=await Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a)));
-    return d.filter(Boolean);
+    return mergeDRE(d.filter(Boolean));
   }
   if(empresa==='sena'){
     const d=await Promise.all(ARQ.holding.map(a=>loadCSV('holding',a)));
-    return d.filter(Boolean);
+    return d.filter(Boolean); // Sena não tem DRE consolidada
   }
   // consolidado: combinar (intersecção dos meses presentes nos dois)
   const [op,hd]=await Promise.all([
     Promise.all(ARQ.operacional.map(a=>loadCSV('operacional',a))),
     Promise.all(ARQ.holding.map(a=>loadCSV('holding',a))),
   ]);
-  return combinar(op.filter(Boolean), hd.filter(Boolean));
+  return mergeDRE(combinar(op.filter(Boolean), hd.filter(Boolean)));
 }
 async function renderIntelP3(){
   const fp=document.getElementById('fp');
