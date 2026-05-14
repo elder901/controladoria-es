@@ -2461,10 +2461,11 @@ async function getDadosCompP3(empresa){
     try{
       const dre=await getDadosDRE();
       const mapa={}; for(const d of dre){ if(d&&d.rot) mapa[d.rot]=d; }
+      const suf=intelP3.empresa==='sena'?'_sena':intelP3.empresa==='consolidado'?'_emp':'_tej';
       const CAMPOS_DRE=['recBruta','recBrutaEfetiva','recLiq'];
       for(const f of fcArr){
         const dd=mapa[f.rot]; if(!dd) continue;
-        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c]||0; }
+        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c+suf]||0; }
       }
     }catch(e){ /* DRE pode não existir para alguma empresa */ }
     return fcArr;
