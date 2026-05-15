@@ -2616,35 +2616,51 @@ async function renderIntelP4(){
   const plAnt   = bp?(bp.patrimonioLiqAnt||pl):pl;
 
   // 5. CÁLCULOS
-  // Kd — custo efetivo da dívida (mensal → anual)
-  const kd = divida>0 ? (despFin/divida)*12*100 : 0;
+  // ESTRATÉGIA: tudo em escala ANUAL para ser consistente com WACC e Selic
+  // Dados mensais da DRE × 12 → proxy anual
+  const despFinAnual = despFin  * 12;
+  const lucroAnual   = lucroLiq * 12;
+  const irAnual      = ir       * 12;
+  const ebitdaAnual  = ebitda   * 12;
+  const nopatAnual   = ebitdaAnual; // simplificação: NOPAT ≈ EBITDA anual (antes de IR aplicado abaixo)
 
-  // Ke — Selic (input do usuário)
+  // Kd — custo efetivo da dívida (% a.a.)
+  // = juros pagos no ano / saldo da dívida no BP
+  // O saldo da dívida já é anual (snap do BP), os juros anualizamos × 12
+  const kd = divida > 0 ? (despFinAnual / divida) * 100 : 0;
+
+  // Ke — Selic (input do usuário, já é % a.a.)
   const ke = intelP4.selic;
 
-  // Alíquota IR efetiva
-  const aliqIR = (lucroLiq+ir)>0 ? ir/Math.abs(lucroLiq+ir) : 0.27;
+  // Alíquota IR efetiva (calculada sobre base anualizada)
+  const aliqIR = (lucroAnual + irAnual) > 0
+    ? irAnual / Math.abs(lucroAnual + irAnual)
+    : 0.27; // fallback 27% se dados incompletos
 
-  // Pesos
-  const wPL    = pl/ativo;
-  const wDiv   = divida/ativo;
+  // Pesos — BP já é snapshot, sem necessidade de anualizar
+  const wPL  = pl    / ativo;
+  const wDiv = divida / ativo;
 
-  // WACC = (PL/Ativo × Ke) + (Dívida/Ativo × Kd × (1 − IR))
-  const wacc = (wPL*ke) + (wDiv*kd*(1-aliqIR));
+  // WACC anual = (PL/Ativo × Ke) + (Dívida/Ativo × Kd × (1 − IR))
+  const wacc = (wPL * ke) + (wDiv * kd * (1 - aliqIR));
 
-  // Capital investido = Ativo − Passivo Circulante
-  const capInv = ativo-(bp?bp.pasCirculante||0:0);
+  // Capital investido = Ativo − Passivo Circulante (snap do BP, já anual)
+  const capInv = ativo - (bp ? bp.pasCirculante || 0 : 0);
 
-  // NOPAT = EBIT × (1 − IR)  |  EBIT ≈ EBITDA - depreciação (usamos EBITDA por simplicidade)
-  const nopat = ebitda*(1-aliqIR);
+  // NOPAT anual = EBITDA anual × (1 − alíquota IR)
+  const nopat = nopatAnual * (1 - aliqIR);
 
-  // EVA = NOPAT − (WACC/100 × CapInv)  [mensal: WACC÷12]
-  const eva = nopat - ((wacc/100)/12)*capInv;
+  // EVA anual = NOPAT anual − (WACC% × Capital Investido)
+  // Ambos agora na mesma escala: R$ anuais
+  const eva = nopat - (wacc / 100) * capInv;
 
-  // Alavancagem financeira = ROE / ROA
-  const roe = (lucroLiq/pl)*100;
-  const roa = (lucroLiq/ativo)*100;
-  const alavFin = roa!==0 ? roe/roa : 0;
+  // ROE e ROA anualizados (lucro anual / base patrimonial do BP)
+  const roe = (lucroAnual / pl)    * 100;
+  const roa = (lucroAnual / ativo) * 100;
+  const alavFin = roa !== 0 ? roe / roa : 0;
+
+  // Cobertura de juros (escala anual × anual — consistente)
+  const coberturaJuros = despFinAnual > 0 ? ebitdaAnual / despFinAnual : 0;
 
   // Ciclo conversão caixa (CCC) — busca FC
   let ccc=null;
@@ -2698,7 +2714,7 @@ async function renderIntelP4(){
   </div>
 
   <div style="margin-bottom:8px;font-size:12px;color:var(--muted);font-style:italic">
-    Cálculos baseados no último mês disponível (${rot}). WACC anualizado. EVA mensal.
+    Cálculos baseados no último mês disponível (${rot}). WACC anualizado. EVA anual. ROE/ROA anualizados (lucro mês × 12).
   </div>
 
   <!-- SEÇÃO 1: WACC -->
@@ -2706,15 +2722,15 @@ async function renderIntelP4(){
     <div class="shead"><h2>Estrutura de Capital & WACC</h2>
       <span class="legend">Custo Médio Ponderado de Capital</span></div>
     <div class="cards" style="grid-template-columns:repeat(4,1fr)">
-      ${kcard('Ke — Custo Capital Próprio',fP(ke),'Selic · benchmark do sócio<br>Se o negócio não superar isso, vale mais aplicar.','#1d4ed8')}
-      ${kcard('Kd — Custo Efetivo da Dívida',fP(kd),`Juros pagos / saldo devedor anualizado<br>Dívida total: ${fM(divida)}`,'#b91c1c')}
-      ${kcard('WACC',fP(wacc),`Ke×${(wPL*100).toFixed(0)}% + Kd×${(wDiv*100).toFixed(0)}%×(1−IR)<br>${wacc<ke?'✅ Capital próprio maior peso':'⚠️ Dívida tem peso relevante'}`,cor(ke-wacc))}
-      ${kcard('EVA — Valor Econômico Adicionado',fM(eva),`NOPAT ${fM(nopat)} − Custo capital ${fM(((wacc/100)/12)*capInv)}<br>${eva>0?'✅ Negócio cria valor acima do custo do capital':'❌ Negócio destrói valor econômico'}`,cor(eva))}
+      ${kcard('Ke — Custo Capital Próprio',fP(ke),'Selic · benchmark do sócio (% a.a.)<br>Se o negócio não superar isso, vale mais aplicar.','#1d4ed8')}
+      ${kcard('Kd — Custo Efetivo da Dívida',fP(kd),`Juros anualizados / saldo devedor (% a.a.)<br>Dívida total: ${fM(divida)}`,'#b91c1c')}
+      ${kcard('WACC',fP(wacc),`Custo médio ponderado de capital (% a.a.)<br>Ke×${(wPL*100).toFixed(0)}% + Kd×${(wDiv*100).toFixed(0)}%×(1−IR)<br>${wacc<ke?'✅ Capital próprio maior peso':'⚠️ Dívida tem peso relevante'}`,cor(ke-wacc))}
+      ${kcard('EVA — Valor Econômico Adicionado',fM(eva),`Base anual · NOPAT ${fM(nopat)} − Custo capital ${fM((wacc/100)*capInv)}<br>${eva>0?'✅ Negócio cria valor acima do custo do capital':'❌ Negócio destrói valor econômico'}`,cor(eva))}
     </div>
     <div class="section" style="background:var(--soft);border:none;margin-top:4px">
       <div style="font-size:12px;line-height:1.7;color:var(--ink)">
         <strong>Como ler o WACC:</strong> O negócio precisa render pelo menos <strong>${fP(wacc)} ao ano</strong> para cobrir o custo de todo o capital investido (dos sócios + dos bancos).
-        O ROE atual é <strong>${fP(roe)}</strong> e o ROA é <strong>${fP(roa)}</strong>.
+        O ROE anualizado é <strong>${fP(roe)}</strong> e o ROA anualizado é <strong>${fP(roa)}</strong> (lucro do último mês × 12 / base patrimonial).
         ${roe>wacc?`<span style="color:var(--good)">✅ ROE supera o WACC — o negócio está criando valor para o sócio.</span>`:`<span style="color:var(--bad)">⚠️ ROE abaixo do WACC — o retorno não cobre o custo do capital.</span>`}
       </div>
     </div>
@@ -2766,7 +2782,7 @@ async function renderIntelP4(){
       ${kcard('Alavancagem Financeira',fI(alavFin),`ROE ${fP(roe)} ÷ ROA ${fP(roa)}<br>${alavFin>1?alavFin>2?'❌ Alavancagem elevada — dívida amplificando risco':'⚠️ Alavancagem moderada':'✅ Negócio financiado majoritariamente por capital próprio'}`,alavFin>2?'var(--bad)':alavFin>1?'#b45309':'var(--good)')}
       ${kcard('Ciclo Conversão de Caixa',ccc!=null?ccc.toFixed(0)+' dias':'—',ccc!=null?`PME + PMR − PMP<br>${ccc<30?'✅ Ciclo curto — boa gestão de capital de giro':ccc<60?'⚠️ Ciclo moderado':'❌ Ciclo longo — pressão no caixa'}`:' Dados de FC necessários',ccc!=null?cor(-ccc):'var(--muted)')}
       ${kcard('ROE vs Selic',fP(roe-ke),`ROE ${fP(roe)} − Selic ${fP(ke)}<br>${roe>ke?'✅ Supera a Selic — vale o risco do negócio':'❌ Abaixo da Selic — renda fixa renderia mais'}`,cor(roe-ke))}
-      ${kcard('Cobertura de Juros',ebitda>0&&despFin>0?fI(ebitda/despFin):'—',`EBITDA ${fM(ebitda)} ÷ Desp. Fin. ${fM(despFin)}<br>${ebitda/despFin>3?'✅ EBITDA cobre bem os juros':ebitda/despFin>1?'⚠️ Cobertura apertada':'❌ EBITDA insuficiente para cobrir juros'}`,ebitda/despFin>3?'var(--good)':ebitda/despFin>1?'#b45309':'var(--bad)')}
+      ${kcard('Cobertura de Juros',despFinAnual>0?fI(coberturaJuros):'—',`EBITDA anual ${fM(ebitdaAnual)} ÷ Juros anuais ${fM(despFinAnual)}<br>${coberturaJuros>3?'✅ EBITDA cobre bem os juros':coberturaJuros>1?'⚠️ Cobertura apertada':'❌ EBITDA insuficiente para cobrir juros'}`,coberturaJuros>3?'var(--good)':coberturaJuros>1?'#b45309':'var(--bad)')}
     </div>
   </div>`;
 }
