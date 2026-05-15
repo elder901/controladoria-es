@@ -2613,7 +2613,7 @@ async function renderIntelP4(){
       const bal = await loadBAL(arqBal);
       if(bal){
         const c = bal.contas.find(c=>c.classif==='3.3.02.01.0017');
-        if(c) despFin = c.mv.deb || 0;
+        if(c) despFin = c.total.deb || 0;
       }
     }
   }catch(e){}
