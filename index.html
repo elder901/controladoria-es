@@ -2600,7 +2600,10 @@ async function renderIntelP4(){
   const rot=dre?dre.rot:'—';
 
   // 3. Dados DRE
-  const despFin   = dre?(Math.abs(dre['despFinanceiras'+suf]||dre.despFin||0)):0;
+  // Juros bancários reais — conta 3.3.02.01.0017 — posição 49 do FC
+  // NÃO usar despFinanceiras da DRE: inclui taxas de cartão, IOF, tarifas etc.
+  let despFin = 0;
+  try{ const fcArr=await getDadosFC(); const fcUlt=fcArr&&fcArr.length?fcArr[fcArr.length-1]:null; if(fcUlt) despFin=Math.abs(fcUlt.jurosEmprestimos||0); }catch(e){}
   const lucroLiq  = dre?(dre['resLucroLiq'+suf]||dre['resLiquido'+suf]||0):0;
   const proLabore = dre?(dre['proLaboreEmp'+suf]||dre.proLaboreEmp||0):0;
   const ir        = dre?(Math.abs(dre['irpj'+suf]||dre.IR||0)):0;
@@ -2723,7 +2726,7 @@ async function renderIntelP4(){
       <span class="legend">Custo Médio Ponderado de Capital</span></div>
     <div class="cards" style="grid-template-columns:repeat(4,1fr)">
       ${kcard('Ke — Custo Capital Próprio',fP(ke),'Selic · benchmark do sócio (% a.a.)<br>Se o negócio não superar isso, vale mais aplicar.','#1d4ed8')}
-      ${kcard('Kd — Custo Efetivo da Dívida',fP(kd),`Juros anualizados / saldo devedor (% a.a.)<br>Dívida total: ${fM(divida)}`,'#b91c1c')}
+      ${kcard('Kd — Custo Efetivo da Dívida',fP(kd),`Juros bancários anualizados / saldo devedor (% a.a.)<br>Conta 3.3.02.01.0017 · Dívida total: ${fM(divida)}`,'#b91c1c')}
       ${kcard('WACC',fP(wacc),`Custo médio ponderado de capital (% a.a.)<br>Ke×${(wPL*100).toFixed(0)}% + Kd×${(wDiv*100).toFixed(0)}%×(1−IR)<br>${wacc<ke?'✅ Capital próprio maior peso':'⚠️ Dívida tem peso relevante'}`,cor(ke-wacc))}
       ${kcard('EVA — Valor Econômico Adicionado',fM(eva),`Base anual · NOPAT ${fM(nopat)} − Custo capital ${fM((wacc/100)*capInv)}<br>${eva>0?'✅ Negócio cria valor acima do custo do capital':'❌ Negócio destrói valor econômico'}`,cor(eva))}
     </div>
