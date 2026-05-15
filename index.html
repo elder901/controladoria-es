@@ -2782,7 +2782,7 @@ async function renderIntelP4(){
   <div class="section">
     <div class="shead"><h2>Indicadores Complementares</h2></div>
     <div class="cards" style="grid-template-columns:repeat(4,1fr)">
-      ${kcard('Alavancagem Financeira',fI(alavFin),`ROE ${fP(roe)} ÷ ROA ${fP(roa)}<br>${alavFin>1?alavFin>2?'❌ Alavancagem elevada — dívida amplificando risco':'⚠️ Alavancagem moderada':'✅ Negócio financiado majoritariamente por capital próprio'}`,alavFin>2?'var(--bad)':alavFin>1?'#b45309':'var(--good)')}
+      ${kcard('Alavancagem Financeira',fI(alavFin),`ROE ${fP(roe)} ÷ ROA ${fP(roa)}<br>${alavFin>4?'❌ Alavancagem muito elevada — atenção ao risco':alavFin>2?'✅ Normal para varejo — fornecedores financiam o giro':alavFin>1?'✅ Estrutura saudável — capital próprio predomina':'⚠️ ROE abaixo do ROA — dívida onerando o sócio'}`,alavFin>4?'var(--bad)':alavFin>1?'var(--good)':'#b45309')}
       ${kcard('Ciclo Conversão de Caixa',ccc!=null?ccc.toFixed(0)+' dias':'—',ccc!=null?`PME + PMR − PMP<br>${ccc<30?'✅ Ciclo curto — boa gestão de capital de giro':ccc<60?'⚠️ Ciclo moderado':'❌ Ciclo longo — pressão no caixa'}`:' Dados de FC necessários',ccc!=null?cor(-ccc):'var(--muted)')}
       ${kcard('ROE vs Selic',fP(roe-ke),`ROE ${fP(roe)} − Selic ${fP(ke)}<br>${roe>ke?'✅ Supera a Selic — vale o risco do negócio':'❌ Abaixo da Selic — renda fixa renderia mais'}`,cor(roe-ke))}
       ${kcard('Cobertura de Juros',despFinAnual>0?fI(coberturaJuros):'—',`EBITDA anual ${fM(ebitdaAnual)} ÷ Juros anuais ${fM(despFinAnual)}<br>${coberturaJuros>3?'✅ EBITDA cobre bem os juros':coberturaJuros>1?'⚠️ Cobertura apertada':'❌ EBITDA insuficiente para cobrir juros'}`,coberturaJuros>3?'var(--good)':coberturaJuros>1?'#b45309':'var(--bad)')}
