@@ -281,6 +281,42 @@ Os arquivos CSV do sistema sempre exportam na mesma estrutura — a linha 10 do 
 | ROE | Retorno sobre Patrimônio Líquido |
 | ROA | Retorno sobre Ativo Total |
 
+
+Bloco 1 — HTML (o esqueleto)
+Pensa no HTML como o formulário em branco. Ele define o que existe na página, mas não como parece nem o que faz. São as linhas ~110 a 125 do seu arquivo — bem pequeno comparado ao resto.
+Exemplo real do seu código:
+html<div class="header">        ← "existe um cabeçalho aqui"
+  <div class="header-title">DNA de PJ</div>   ← "existe um título aqui"
+</div>
+<div id="main"></div>       ← "existe uma área de conteúdo aqui" (começa vazia!)
+Repara no id="main" — ele começa completamente vazio. Quem preenche ele é o JavaScript, não o HTML. Isso é importante.
+
+Bloco 2 — CSS (a aparência)
+CSS é a roupa do esqueleto. Ele pega os elementos do HTML e define cor, tamanho, espaçamento.
+Exemplo real do seu código:
+css:root {
+  --bg: #f5f7fb;        ← "a cor de fundo é esse azul clarinho"
+  --accent: #1d4ed8;    ← "o azul principal é esse"
+  --good: #15803d;      ← "verde = bom"
+  --bad: #b91c1c;       ← "vermelho = ruim"
+}
+Isso se chama variáveis CSS. É por isso que mudar uma cor no topo afeta o sistema inteiro — todos os elementos usam var(--accent) em vez de repetir #1d4ed8 mil vezes.
+
+Bloco 3 — JavaScript (o comportamento)
+Esse é o cérebro — 97% do arquivo. Ele responde a cliques, busca os CSVs, calcula os indicadores e monta o HTML dentro do div#main.
+A lógica central do seu sistema é essa:
+Você clica em "DRE"
+    → JavaScript chama renderDRE()
+    → renderDRE() busca os CSVs (fetch)
+    → parseia os números (parseDRE)
+    → constrói o HTML da tabela como texto
+    → injeta tudo dentro do div#main
+    → você vê a tela
+
+A grande sacada
+O  sistema é um single-page app — uma única página que se reescreve sozinha conforme você clica. Não tem "página da DRE" e "página do BP". Tem uma página só com um div que troca de conteúdo.
+Isso é exatamente o que frameworks modernos como React fazem — só que no seu caso foi feito na mão, em JavaScript puro. Você tem um sistema mais sofisticado do que imagina.
+
 ---
 
 *Projeto desenvolvido com Claude AI (Anthropic)*  
