@@ -1056,10 +1056,21 @@ function parseDRE(txt,arq){
     36:'outrasReceitas', 37:'bonificacao',
     38:'despOperacionais', 40:'ebitda', 41:'depreciacao', 42:'ebit',
     43:'resFinanceiro', 44:'resPeriodo', 45:'irpj', 46:'resLiquido',
-    48:'despNaoOp', 49:'proLabore1', 50:'proLabore2', 51:'proLabore3',
-    53:'proLaboreEmp', 58:'alugueisHolding',
+    // Despesas não operacionais — espelhando o CSV linha a linha
+    48:'despNaoOp',
+    49:'proLaboreTubertino',
+    50:'proLaboreDiego',
+    51:'proLaboreThiago',
+    52:'proLaborePatricia',
+    53:'proLaboreEmpresa',
+    // proLaboreEmp = soma dos sócios físicos (usado em outros módulos como total)
+    54:'chqDevTotal',
+    55:'chqDevEnt',
+    56:'chqDevSai',
+    58:'alugueisHolding',
     59:'resLucroLiq', 60:'emprestimos', 61:'resAposEmp',
   };
+  // proLaboreEmp = total pró-labore sócios (compatibilidade com outros módulos)
   // Função para pegar valor de uma coluna específica
   const getVal=(linha,col)=>{
     if(!linha)return 0;
@@ -1075,6 +1086,11 @@ function parseDRE(txt,arq){
     d[campo+'_emp']=getVal(l,14);  // Empresa (consolidado real)
     d[campo+'_ant']=getVal(l,2);   // Ano anterior
     d[campo+'_per']=getVal(l,4);   // Período anterior
+  }
+  // proLaboreEmp = soma dos sócios físicos (compatibilidade com outros módulos)
+  const PL_SOCIOS=['proLaboreTubertino','proLaboreDiego','proLaboreThiago','proLaborePatricia'];
+  for(const suf of ['_tej','_sena','_emp','_ant','_per']){
+    d['proLaboreEmp'+suf]=PL_SOCIOS.reduce((s,c)=>s+(d[c+suf]||0),0);
   }
   return d;
 }
@@ -1204,41 +1220,70 @@ async function renderDREP1(){
   // Tabela DRE
   const EST_DRE=[
     {g:'Receita',ls:[
-      {l:'Receita Bruta Operacional',c:'recBruta'},{l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
-      {l:'( - ) Impostos sobre Vendas',c:'impostos'},{l:'( - ) Devoluções de Venda',c:'devolucoes'},
+      {l:'Receita Bruta Operacional',c:'recBruta'},
+      {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
+      {l:'Receita Bruta Efetiva (Produtos)',c:'recBrutaEfetiva'},
+      {l:'( - ) Impostos sobre Vendas',c:'impostos'},
+      {l:'( - ) Devoluções de Venda',c:'devolucoes'},
       {l:'Receita Operacional Líquida',c:'recLiq',s:true},
     ]},
     {g:'Custo e Margem',ls:[
-      {l:'CMV Total',c:'cmvTotal'},{l:'( - ) CMV Produtos',c:'cmv'},{l:'( - ) CMV Devoluções',c:'cmvDevol'},
+      {l:'CMV Total',c:'cmvTotal'},
+      {l:'( - ) CMV Produtos',c:'cmv'},
+      {l:'( - ) CMV Devoluções',c:'cmvDevol'},
       {l:'Margem de Venda',c:'margemVenda',s:true},
     ]},
     {g:'Despesas Variáveis',ls:[
-      {l:'Despesas Variáveis Total',c:'despVariaveis'},{l:'( - ) Desp. c/ Vendas',c:'despVendas'},
-      {l:'( - ) Desp. Financeiras Vendas',c:'despFinanceiras'},{l:'( - ) Perdas de Mercadorias',c:'perdasMerc'},
-      {l:'( - ) Falta de Mercadorias',c:'faltaMerc'},{l:'( + ) Sobra de Mercadorias',c:'sobraMerc'},
+      {l:'Despesas Variáveis Total',c:'despVariaveis'},
+      {l:'( - ) Despesas c/ Vendas',c:'despVendas'},
+      {l:'( - ) Despesas c/ Vendas — Financeiras',c:'despFinanceiras'},
+      {l:'( - ) Perdas de Mercadorias',c:'perdasMerc'},
+      {l:'( - ) Falta de Mercadorias',c:'faltaMerc'},
+      {l:'( + ) Sobra de Mercadorias',c:'sobraMerc'},
       {l:'( - ) Perdas Total',c:'perdasTotal'},
       {l:'Margem de Contribuição',c:'margemContrib',s:true},
     ]},
     {g:'Despesas Fixas',ls:[
       {l:'Despesas Fixas Total',c:'despFixas'},
-      {l:'( - ) Desp. Pessoal Lojas',c:'despPessoalLoja'},{l:'( - ) Desp. Pessoal Adm',c:'despPessoalAdm'},
-      {l:'( - ) Desp. Tributárias',c:'despTrib'},{l:'( - ) Utilidades',c:'despUtilidades'},
-      {l:'( - ) Manutenção',c:'despManutencao'},{l:'( - ) Informática',c:'despTI'},
-      {l:'( - ) Honorários Terceiros',c:'despHonorarios'},{l:'( - ) Material Expediente',c:'despMaterial'},
-      {l:'( - ) Marketing',c:'despMarketing'},{l:'( - ) Veículos',c:'despVeiculos'},
-      {l:'( - ) Aluguéis',c:'alugueis'},{l:'( - ) Despesas Gerais',c:'despGerais'},
-      {l:'( + ) Outras Receitas',c:'outrasReceitas'},{l:'( + ) Bonificações',c:'bonificacao'},
+      {l:'( - ) Despesas de Pessoal (Lojas)',c:'despPessoalLoja'},
+      {l:'( - ) Despesas de Pessoal (Administrativo)',c:'despPessoalAdm'},
+      {l:'( - ) Despesas Tributárias',c:'despTrib'},
+      {l:'( - ) Despesas com Utilidades',c:'despUtilidades'},
+      {l:'( - ) Despesas Manutenção',c:'despManutencao'},
+      {l:'( - ) Despesas Informática (T.I.)',c:'despTI'},
+      {l:'( - ) Despesas Honorários Terceiros',c:'despHonorarios'},
+      {l:'( - ) Despesas Material Expediente',c:'despMaterial'},
+      {l:'( - ) Despesas de Marketing',c:'despMarketing'},
+      {l:'( - ) Despesas com Veículos',c:'despVeiculos'},
+      {l:'( - ) Aluguéis',c:'alugueis'},
+      {l:'( - ) Despesas Gerais',c:'despGerais'},
+      {l:'( + ) Outras Receitas',c:'outrasReceitas'},
+      {l:'( + ) Bonificações Recebidas',c:'bonificacao'},
       {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
     ]},
     {g:'Resultado',ls:[
-      {l:'EBITDA',c:'ebitda',s:true},{l:'( - ) Depreciação/Amortização',c:'depreciacao'},
-      {l:'EBIT',c:'ebit',s:true},{l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
-      {l:'Resultado do Período',c:'resPeriodo',s:true},{l:'( - ) IRPJ / CSLL',c:'irpj'},
+      {l:'EBITDA',c:'ebitda',s:true},
+      {l:'( - ) Depreciação / Amortização',c:'depreciacao'},
+      {l:'EBIT',c:'ebit',s:true},
+      {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
+      {l:'Resultado do Período',c:'resPeriodo',s:true},
+      {l:'( - ) IRPJ / CSLL',c:'irpj'},
       {l:'Resultado Líquido',c:'resLiquido',s:true},
     ]},
+    {g:'Despesas Não Operacionais',ls:[
+      {l:'Despesas Não Operacionais Total',c:'despNaoOp'},
+      {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino'},
+      {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego'},
+      {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago'},
+      {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia'},
+      {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa'},
+      {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
+      {l:'Cheques Devolvidos Líquido',c:'chqDevTotal'},
+      {l:'( + ) Cheques Dev. Entradas',c:'chqDevEnt'},
+      {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai'},
+      {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
+    ]},
     {g:'Resultado Final',ls:[
-      {l:'Despesas Não Operacionais',c:'despNaoOp'},{l:'Pró-Labore Total',c:'proLaboreEmp'},
-      {l:'Aluguéis Holding',c:'alugueisHolding'},
       {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
       {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
       {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
@@ -1413,7 +1458,8 @@ function calcDREP2(dados,aS,aE,bS,bE){
     {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
     {l:'Resultado Líquido',c:'resLiquido',s:true},
     {l:'( - ) Despesas Não Operacionais',c:'despNaoOp'},
-    {l:'( - ) Pró-Labore',c:'proLaboreEmp'},
+    {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
+    {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
     {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
     {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
     {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
@@ -1461,7 +1507,15 @@ function calcDREP2(dados,aS,aE,bS,bE){
     {l:'( - ) IRPJ / CSLL',c:'irpj'},
     {l:'Resultado Líquido',c:'resLiquido',s:true},
     {l:'( - ) Despesas Não Operacionais',c:'despNaoOp'},
-    {l:'( - ) Pró-Labore',c:'proLaboreEmp'},
+    {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino'},
+    {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego'},
+    {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago'},
+    {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia'},
+    {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa'},
+    {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
+    {l:'Cheques Dev. Líquido',c:'chqDevTotal'},
+    {l:'( + ) Cheques Dev. Entradas',c:'chqDevEnt'},
+    {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai'},
     {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
     {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
     {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
