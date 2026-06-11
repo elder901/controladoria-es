@@ -282,6 +282,12 @@ function parseMoeda(t){if(!t||!t.trim())return 0;const n=parseFloat(t.replace(/\
 function soma(dados){
   const t={months:dados.length};
   for(const k of Object.values(CM))t[k]=dados.reduce((s,d)=>s+(d[k]||0),0);
+  // varCaixa acumulado = SF do último mês − SI do primeiro mês
+  // NÃO é soma dos movimentos mensais (geraria distorção por correspondentes e ajustes)
+  if(dados.length>1){
+    const primeiro=dados[0], ultimo=dados[dados.length-1];
+    t.varCaixa=(ultimo.saldoFim||0)-(primeiro.saldoIni||0);
+  }
   return t;
 }
 function combinar(op,hd){
