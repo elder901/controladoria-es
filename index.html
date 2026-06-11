@@ -3549,34 +3549,31 @@ window.atualizarProjecao=function(){
 window.setPag=function(p){S.pag=p;render();}
 window.exportDREP2CSV=function(){
   const tabela=document.getElementById('dre-p2-tabela');
-  if(!tabela){alert('Tabela não encontrada.');return;}
+  if(!tabela){alert('Tabela nao encontrada.');return;}
   const rows=tabela.querySelectorAll('tr');
   const linhas=[];
-  rows.forEach(tr=>{
+  rows.forEach(function(tr){
     const cells=tr.querySelectorAll('th,td');
     const linha=[];
-    cells.forEach(td=>{
-      // Pega só o texto principal ignorando o A.V.%
+    cells.forEach(function(td){
       const cv=td.querySelector('.cv');
-      const txt=cv?cv.textContent.trim():td.textContent.trim();
-      // Escapa aspas e envolve em aspas se tiver vírgula
-      const val=txt.replace(/"/g,'""');
-      linha.push(val.includes(';')||val.includes('"')?`"${val}"`:val);
+      const txt=(cv?cv.textContent:td.textContent).trim();
+      const val=txt.replace(/;/g,' ');
+      linha.push(val);
     });
-    if(linha.some(c=>c.trim())) linhas.push(linha.join(';'));
+    if(linha.some(function(c){return c.trim();})) linhas.push(linha.join(';'));
   });
-  const bom='﻿'; // BOM para Excel reconhecer UTF-8
+  const bom='﻿';
   const blob=new Blob([bom+linhas.join('
 ')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  // Nome do arquivo com os períodos
-  const pA=document.getElementById('aS')?.value||'A';
-  const pAE=document.getElementById('aE')?.value||'A';
-  const pB=document.getElementById('bS')?.value||'B';
-  const pBE=document.getElementById('bE')?.value||'B';
-  a.download=`DRE_${pA}_${pAE}_vs_${pB}_${pBE}.csv`.replace(/\//g,'-');
+  const pA=(document.getElementById('aS')||{}).value||'A';
+  const pAE=(document.getElementById('aE')||{}).value||'A';
+  const pB=(document.getElementById('bS')||{}).value||'B';
+  const pBE=(document.getElementById('bE')||{}).value||'B';
+  a.download='DRE_'+pA+'_'+pAE+'_vs_'+pB+'_'+pBE+'.csv';
   a.click();
   URL.revokeObjectURL(url);
 };
