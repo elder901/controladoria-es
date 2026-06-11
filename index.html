@@ -1578,9 +1578,10 @@ function calcDREP2(dados,aS,aE,bS,bE){
       <div style="display:flex;gap:6px;align-items:center">
         <button class="qbtn ${dreP2view==='main'?'active':''}" onclick="window.dreP2view='main';calcDREP2wrap()">Principais linhas</button>
         <button class="qbtn ${dreP2view==='full'?'active':''}" onclick="window.dreP2view='full';calcDREP2wrap()">DRE completa</button>
+        <button class="dre-fs-btn" onclick="exportDREP2CSV()" title="Exportar CSV"><span>⬇</span> CSV</button>
         <button class="dre-fs-btn" onclick="dreToggleFS('dre-p2-wrap')"><span>⛶</span> Fullscreen</button>
       </div></div>
-      <div class="twrap"><table><thead><tr>
+      <div class="twrap"><table id="dre-p2-tabela"><thead><tr>
         <th style="min-width:200px;text-align:left">Linha DRE</th>
         <th>Período A</th><th>Período B</th>
         <th>Δ p.p.</th><th>Diferença</th><th>Var %</th>
@@ -3546,6 +3547,39 @@ window.atualizarProjecao=function(){
 // EXPÕE FUNÇÕES GLOBAIS (necessário para GitHub Pages)
 // ============================================================
 window.setPag=function(p){S.pag=p;render();}
+window.exportDREP2CSV=function(){
+  const tabela=document.getElementById('dre-p2-tabela');
+  if(!tabela){alert('Tabela não encontrada.');return;}
+  const rows=tabela.querySelectorAll('tr');
+  const linhas=[];
+  rows.forEach(tr=>{
+    const cells=tr.querySelectorAll('th,td');
+    const linha=[];
+    cells.forEach(td=>{
+      // Pega só o texto principal ignorando o A.V.%
+      const cv=td.querySelector('.cv');
+      const txt=cv?cv.textContent.trim():td.textContent.trim();
+      // Escapa aspas e envolve em aspas se tiver vírgula
+      const val=txt.replace(/"/g,'""');
+      linha.push(val.includes(';')||val.includes('"')?`"${val}"`:val);
+    });
+    if(linha.some(c=>c.trim())) linhas.push(linha.join(';'));
+  });
+  const bom='﻿'; // BOM para Excel reconhecer UTF-8
+  const blob=new Blob([bom+linhas.join('
+')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  // Nome do arquivo com os períodos
+  const pA=document.getElementById('aS')?.value||'A';
+  const pAE=document.getElementById('aE')?.value||'A';
+  const pB=document.getElementById('bS')?.value||'B';
+  const pBE=document.getElementById('bE')?.value||'B';
+  a.download=`DRE_${pA}_${pAE}_vs_${pB}_${pBE}.csv`.replace(/\//g,'-');
+  a.click();
+  URL.revokeObjectURL(url);
+};
 window.dreToggleFS=function(elId){
   const el=document.getElementById(elId);
   if(!el)return;
