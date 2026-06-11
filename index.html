@@ -267,7 +267,7 @@ function parseCSV(txt,arq){
     54:'fluxoAdiant',55:'adiantEfet',56:'adiantReceb',
     57:'fluxoCheques',58:'chqCompensados',59:'chqEmitidos',
     60:'necCG',61:'acionistas',62:'recursoLigadas',63:'recursoEnviado',
-    64:'varCaixa',65:'resgate',66:'aplicacao',
+    64:'varCaixa',65:'resgate',66:'aplicacao',70:'movFinal',
     67:'entCorresp',68:'saiCorresp'};
   for(const [i,c] of Object.entries(L)){
     const l=lines[+i];if(!l)continue;
@@ -348,7 +348,7 @@ async function renderP1(){
   const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
   fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+'<div id="bancos-box"></div>'+buildTabela(sl,tot);
   buildSparks(dados,sl);
-  renderBancosBox(ult.rot, ult.varCaixa||0, sl, tot);
+  renderBancosBox(ult.rot, ult.movFinal||ult.varCaixa||0, sl, tot);
 }
 
 // ============================================================
@@ -544,7 +544,7 @@ async function renderBancosBox(rotAlvo, varCaixaCSV, sl, tot){
       <div class="kcard"><h3>Variação no Mês</h3>
         <div class="kval" style="color:${corVar};font-size:20px">${sinalVar}${fM(variacao)}</div>
         <div class="kmeta"><span style="font-size:11px;color:var(--muted)">Saldo Final − Saldo Inicial</span></div></div>
-      <div class="kcard"><h3>Variação de Caixa (FC)</h3>
+      <div class="kcard"><h3>Movimento Final (FC)</h3>
         <div class="kval" style="font-size:20px">${(varCaixaCSV||0)>=0?'+':''}${fM(varCaixaCSV||0)}</div>
         <div class="kmeta">${badgeCSV}</div></div>
     </div>
@@ -1969,12 +1969,10 @@ async function renderIntel(){
       <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Página 1 · Análise Mensal</button>
       <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Página 2 · Evolução do Período</button>
       <button class="mtab ${S.pag===3?'active':''}" onclick="setPag(3)">Página 3 · Comparativo Dinâmico</button>
-      <button class="mtab ${S.pag===4?'active':''}" onclick="setPag(4)">Página 4 · Valor & Retorno</button>
     </div>
     <div id="fp"><div class="loading">Cruzando FC + DRE + BP...</div></div>`;
   if(S.pag===1)renderIntelP1();
   else if(S.pag===3)renderIntelP3();
-  else if(S.pag===4)renderIntelP4();
   else renderIntelP2();
 }
 
@@ -2463,11 +2461,10 @@ async function getDadosCompP3(empresa){
     try{
       const dre=await getDadosDRE();
       const mapa={}; for(const d of dre){ if(d&&d.rot) mapa[d.rot]=d; }
-      const suf=intelP3.empresa==='sena'?'_sena':intelP3.empresa==='consolidado'?'_emp':'_tej';
       const CAMPOS_DRE=['recBruta','recBrutaEfetiva','recLiq'];
       for(const f of fcArr){
         const dd=mapa[f.rot]; if(!dd) continue;
-        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c+suf]||0; }
+        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c]||0; }
       }
     }catch(e){ /* DRE pode não existir para alguma empresa */ }
     return fcArr;
@@ -2574,234 +2571,6 @@ window.toggleGrandezaP3=function(gid){
   renderIntelP3();
 };
 window.setEmpresaP3=function(emp){intelP3.empresa=emp;renderIntelP3();};
-
-// ─────────────────────────────────────────────
-// INTEL P4 — VALOR & RETORNO (WACC / DOL / EVA)
-// ─────────────────────────────────────────────
-let intelP4={empresa:'consolidado', selic:14.50};
-
-async function renderIntelP4(){
-  const fp=document.getElementById('fp');
-  if(!fp) return;
-
-  // 1. Buscar dados DRE + BP do mês mais recente
-  let dre=null, bp=null;
-  try{
-    const dreArr=await getDadosDRE();
-    if(dreArr&&dreArr.length) dre=dreArr[dreArr.length-1];
-  }catch(e){}
-  try{
-    const bpArr=await getDadosBP();
-    if(bpArr&&bpArr.length) bp=bpArr[bpArr.length-1];
-  }catch(e){}
-
-  // 2. Sufixo empresa
-  const suf=intelP4.empresa==='sena'?'_sena':intelP4.empresa==='tejotao'?'_tej':'_emp';
-  const rot=dre?dre.rot:'—';
-
-  // 3. Dados DRE
-  // Juros bancários reais — conta 3.3.02.01.0017 do balancete
-  // Campo mv.deb = débito do movimento do mês (não acumulado)
-  // Única fonte que separa juros bancários de taxas de cartão, IOF etc.
-  let despFin = 0;
-  try{
-    // Converter rot da DRE (ex: 'abr/26') para nome do arquivo de balancete (ex: 'bal0426.Html')
-    const mesesBal={jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'};
-    const partes = rot.split('/'); // ['abr','26']
-    const arqBal = partes.length===2 ? `bal${mesesBal[partes[0]]}${partes[1]}.Html` : null;
-    if(arqBal){
-      const bal = await loadBAL(arqBal);
-      if(bal){
-        const c = bal.contas.find(c=>c.classif==='3.3.02.01.0017');
-        if(c) despFin = c.total.deb || 0;
-      }
-    }
-  }catch(e){}
-  const lucroLiq  = dre?(dre['resLucroLiq'+suf]||dre['resLiquido'+suf]||0):0;
-  const proLabore = dre?(dre['proLaboreEmp'+suf]||dre.proLaboreEmp||0):0;
-  const ir        = dre?(Math.abs(dre['irpj'+suf]||dre.IR||0)):0;
-  const ebitda    = dre?(dre['ebitda'+suf]||0):0;
-  const recLiq    = dre?(dre['recLiq'+suf]||0):0;
-
-  // 4. Dados BP
-  const divCP   = bp?(bp.financiamentosPC||0):0;
-  const divLP   = bp?(bp.financiamentosPNC||0):0;
-  const divida  = divCP+divLP;
-  const pl      = bp?(bp.patrimonioLiq||1):1;
-  const ativo   = bp?(bp.totalAtivo||1):1;
-  const plAnt   = bp?(bp.patrimonioLiqAnt||pl):pl;
-
-  // 5. CÁLCULOS
-  // ESTRATÉGIA: tudo em escala ANUAL para ser consistente com WACC e Selic
-  // Dados mensais da DRE × 12 → proxy anual
-  const despFinAnual = despFin  * 12;
-  const lucroAnual   = lucroLiq * 12;
-  const irAnual      = ir       * 12;
-  const ebitdaAnual  = ebitda   * 12;
-  const nopatAnual   = ebitdaAnual; // simplificação: NOPAT ≈ EBITDA anual (antes de IR aplicado abaixo)
-
-  // Kd — custo efetivo da dívida (% a.a.)
-  // = juros pagos no ano / saldo da dívida no BP
-  // O saldo da dívida já é anual (snap do BP), os juros anualizamos × 12
-  const kd = divida > 0 ? (despFinAnual / divida) * 100 : 0;
-
-  // Ke — Selic (input do usuário, já é % a.a.)
-  const ke = intelP4.selic;
-
-  // Alíquota IR efetiva (calculada sobre base anualizada)
-  const aliqIR = (lucroAnual + irAnual) > 0
-    ? irAnual / Math.abs(lucroAnual + irAnual)
-    : 0.27; // fallback 27% se dados incompletos
-
-  // Pesos — BP já é snapshot, sem necessidade de anualizar
-  const wPL  = pl    / ativo;
-  const wDiv = divida / ativo;
-
-  // WACC anual = (PL/Ativo × Ke) + (Dívida/Ativo × Kd × (1 − IR))
-  const wacc = (wPL * ke) + (wDiv * kd * (1 - aliqIR));
-
-  // Capital investido = Ativo − Passivo Circulante (snap do BP, já anual)
-  const capInv = ativo - (bp ? bp.pasCirculante || 0 : 0);
-
-  // NOPAT anual = EBITDA anual × (1 − alíquota IR)
-  const nopat = nopatAnual * (1 - aliqIR);
-
-  // EVA anual = NOPAT anual − (WACC% × Capital Investido)
-  // Ambos agora na mesma escala: R$ anuais
-  const eva = nopat - (wacc / 100) * capInv;
-
-  // ROE e ROA anualizados (lucro anual / base patrimonial do BP)
-  const roe = (lucroAnual / pl)    * 100;
-  const roa = (lucroAnual / ativo) * 100;
-  const alavFin = roa !== 0 ? roe / roa : 0;
-
-  // Cobertura de juros (escala anual × anual — consistente)
-  const coberturaJuros = despFinAnual > 0 ? ebitdaAnual / despFinAnual : 0;
-
-  // Ciclo conversão caixa (CCC) — busca FC
-  let ccc=null;
-  try{
-    const fc=await getDadosFC();
-    const fcUlt=fc&&fc.length?fc[fc.length-1]:null;
-    if(fcUlt&&fcUlt.pme!=null) ccc=(fcUlt.pme||0)+(fcUlt.pmr||0)-(fcUlt.pmp||0);
-  }catch(e){}
-
-  // DOL — Destino do lucro (usa valores absolutos)
-  const lucroBase = Math.abs(lucroLiq)||1;
-  const dPL = pl - plAnt; // variação PL
-  const reinvestido = dPL - lucroLiq + Math.abs(proLabore); // simplificado
-  const distribuido = Math.abs(proLabore);
-  const retido = lucroLiq - distribuido;
-
-  // 6. Formatadores
-  const fM=v=>{if(v==null||isNaN(v))return'—';const a=Math.abs(v);const s=v<0?'- ':'';if(a>=1e6)return s+'R$ '+(a/1e6).toFixed(2).replace('.',',')+'M';if(a>=1e3)return s+'R$ '+(a/1e3).toFixed(1).replace('.',',')+'k';return s+'R$ '+a.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,'.');};
-  const fP=v=>v==null||isNaN(v)?'—':(v>=0?'+':'')+v.toFixed(2).replace('.',',')+'%';
-  const fI=v=>v==null||isNaN(v)?'—':v.toFixed(2).replace('.',',')+'×';
-  const cor=v=>v>0?'var(--good)':'var(--bad)';
-  const kcard=(titulo,valor,sub,clr)=>`<div class="kcard"><h3>${titulo}</h3><div class="kval" style="color:${clr||'var(--ink)'};font-size:17px">${valor}</div><div class="kmeta">${sub}</div></div>`;
-
-  // Barra DOL
-  const barDOL=(label,val,total,clr)=>{
-    const pct=total>0?Math.min(100,Math.abs(val)/total*100):0;
-    return`<div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${label}</span><strong>${fM(val)} · ${pct.toFixed(1)}%</strong></div>
-      <div style="height:8px;background:var(--line);border-radius:4px"><div style="height:8px;width:${pct}%;background:${clr};border-radius:4px"></div></div>
-    </div>`;
-  };
-
-  fp.innerHTML=`
-  <div class="toolbar" style="gap:16px;align-items:center;flex-wrap:wrap">
-    <div class="tg"><label>Empresa</label>
-      <div class="btngrp">
-        <button class="btn ${intelP4.empresa==='tejotao'?'active':''}" onclick="intelP4.empresa='tejotao';renderIntelP4()">Tejotão</button>
-        <button class="btn ${intelP4.empresa==='sena'?'active':''}" onclick="intelP4.empresa='sena';renderIntelP4()">Sena</button>
-        <button class="btn ${intelP4.empresa==='consolidado'?'active':''}" onclick="intelP4.empresa='consolidado';renderIntelP4()">Consolidado</button>
-      </div>
-    </div>
-    <div class="tg"><label>Ke — Custo capital próprio (Selic % a.a.)</label>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="range" min="5" max="25" step="0.25" value="${intelP4.selic}"
-          style="width:140px" oninput="this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)+'%';intelP4.selic=parseFloat(this.value);renderIntelP4()">
-        <span style="font-size:13px;font-weight:700;min-width:52px">${ke.toFixed(2)}%</span>
-        <span style="font-size:10px;color:var(--muted)">Selic atual: 14,50% a.a.</span>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--muted)">Referência: ${rot}</div>
-  </div>
-
-  <div style="margin-bottom:8px;font-size:12px;color:var(--muted);font-style:italic">
-    Cálculos baseados no último mês disponível (${rot}). WACC anualizado. EVA anual. ROE/ROA anualizados (lucro mês × 12).
-  </div>
-
-  <!-- SEÇÃO 1: WACC -->
-  <div class="section">
-    <div class="shead"><h2>Estrutura de Capital & WACC</h2>
-      <span class="legend">Custo Médio Ponderado de Capital</span></div>
-    <div class="cards" style="grid-template-columns:repeat(4,1fr)">
-      ${kcard('Ke — Custo Capital Próprio',fP(ke),'Selic · benchmark do sócio (% a.a.)<br>Se o negócio não superar isso, vale mais aplicar.','#1d4ed8')}
-      ${kcard('Kd — Custo Efetivo da Dívida',fP(kd),`Balancete 3.3.02.01.0017 anualizados / saldo devedor (% a.a.)<br>Juros bancários ${fM(despFin)}/mês · Dívida total: ${fM(divida)}`,'#b91c1c')}
-      ${kcard('WACC',fP(wacc),`Custo médio ponderado de capital (% a.a.)<br>Ke×${(wPL*100).toFixed(0)}% + Kd×${(wDiv*100).toFixed(0)}%×(1−IR)<br>${wacc<ke?'✅ Capital próprio maior peso':'⚠️ Dívida tem peso relevante'}`,cor(ke-wacc))}
-      ${kcard('EVA — Valor Econômico Adicionado',fM(eva),`Base anual · NOPAT ${fM(nopat)} − Custo capital ${fM((wacc/100)*capInv)}<br>${eva>0?'✅ Negócio cria valor acima do custo do capital':'❌ Negócio destrói valor econômico'}`,cor(eva))}
-    </div>
-    <div class="section" style="background:var(--soft);border:none;margin-top:4px">
-      <div style="font-size:12px;line-height:1.7;color:var(--ink)">
-        <strong>Como ler o WACC:</strong> O negócio precisa render pelo menos <strong>${fP(wacc)} ao ano</strong> para cobrir o custo de todo o capital investido (dos sócios + dos bancos).
-        O ROE anualizado é <strong>${fP(roe)}</strong> e o ROA anualizado é <strong>${fP(roa)}</strong> (lucro do último mês × 12 / base patrimonial).
-        ${roe>wacc?`<span style="color:var(--good)">✅ ROE supera o WACC — o negócio está criando valor para o sócio.</span>`:`<span style="color:var(--bad)">⚠️ ROE abaixo do WACC — o retorno não cobre o custo do capital.</span>`}
-      </div>
-    </div>
-  </div>
-
-  <!-- SEÇÃO 2: DOL -->
-  <div class="section">
-    <div class="shead"><h2>DOL — Destino do Lucro</h2>
-      <span class="legend">O que aconteceu com o resultado de ${rot}</span></div>
-    <div class="p2grid">
-      <div class="ccard">
-        <h3>Distribuição do resultado</h3>
-        ${barDOL('Pró-labore (distribuído aos sócios)', distribuido, lucroBase, '#1d4ed8')}
-        ${barDOL('Retido / reinvestido no negócio', retido>0?retido:0, lucroBase, '#15803d')}
-        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="color:var(--muted)">Lucro líquido do período</span>
-            <strong style="color:${cor(lucroLiq)}">${fM(lucroLiq)}</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="color:var(--muted)">Pró-labore pago</span>
-            <strong>- ${fM(distribuido)}</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--line);padding-top:4px">
-            <span>Resultado retido</span>
-            <strong style="color:${cor(retido)}">${fM(retido)}</strong>
-          </div>
-        </div>
-      </div>
-      <div class="ccard">
-        <h3>Variação do Patrimônio Líquido</h3>
-        <div class="citem"><span>PL período anterior</span><strong>${fM(plAnt)}</strong></div>
-        <div class="citem"><span>+ Lucro líquido</span><strong style="color:${cor(lucroLiq)}">${fM(lucroLiq)}</strong></div>
-        <div class="citem"><span>− Pró-labore / distribuições</span><strong>- ${fM(distribuido)}</strong></div>
-        <div class="citem" style="font-weight:700;border-top:1px solid var(--line);margin-top:4px;padding-top:8px">
-          <span>PL atual</span><strong style="color:${cor(pl-plAnt)}">${fM(pl)} ${pl>plAnt?'▲':'▼'}</strong>
-        </div>
-        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
-          Pró-labore representa <strong>${((distribuido/lucroBase)*100).toFixed(1)}%</strong> do lucro líquido do período.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SEÇÃO 3: INDICADORES COMPLEMENTARES -->
-  <div class="section">
-    <div class="shead"><h2>Indicadores Complementares</h2></div>
-    <div class="cards" style="grid-template-columns:repeat(4,1fr)">
-      ${kcard('Alavancagem Financeira',fI(alavFin),`ROE ${fP(roe)} ÷ ROA ${fP(roa)}<br>${alavFin>4?'❌ Alavancagem muito elevada — atenção ao risco':alavFin>2?'✅ Normal para varejo — fornecedores financiam o giro':alavFin>1?'✅ Estrutura saudável — capital próprio predomina':'⚠️ ROE abaixo do ROA — dívida onerando o sócio'}`,alavFin>4?'var(--bad)':alavFin>1?'var(--good)':'#b45309')}
-      ${kcard('Ciclo Conversão de Caixa',ccc!=null?ccc.toFixed(0)+' dias':'—',ccc!=null?`PME + PMR − PMP<br>${ccc<30?'✅ Ciclo curto — boa gestão de capital de giro':ccc<60?'⚠️ Ciclo moderado':'❌ Ciclo longo — pressão no caixa'}`:' Dados de FC necessários',ccc!=null?cor(-ccc):'var(--muted)')}
-      ${kcard('ROE vs Selic',fP(roe-ke),`ROE ${fP(roe)} − Selic ${fP(ke)}<br>${roe>ke?'✅ Supera a Selic — vale o risco do negócio':'❌ Abaixo da Selic — renda fixa renderia mais'}`,cor(roe-ke))}
-      ${kcard('Cobertura de Juros',despFinAnual>0?fI(coberturaJuros):'—',`EBITDA anual ${fM(ebitdaAnual)} ÷ Juros anuais ${fM(despFinAnual)}<br>${coberturaJuros>3?'✅ EBITDA cobre bem os juros':coberturaJuros>1?'⚠️ Cobertura apertada':'❌ EBITDA insuficiente para cobrir juros'}`,coberturaJuros>3?'var(--good)':coberturaJuros>1?'#b45309':'var(--bad)')}
-    </div>
-  </div>`;
-}
 
 function buildChartLinhaP3(sl, series){
   if(!series.length) return '<div class="loading">Selecione ao menos uma grandeza.</div>';
