@@ -221,6 +221,7 @@ const CM={
 };
 let S={emp:'operacional',modulo:'financeiro',pag:1,ini:null,fim:null,cache:{},p2aS:null,p2aE:null,p2bS:null,p2bE:null,avBase:(typeof localStorage!=='undefined'&&localStorage.getItem('dre.avBase'))||'rol'};
 S.simAluguelEmp=(typeof localStorage!=='undefined'&&localStorage.getItem('dre.simAluguelEmp')==='1')||false;
+S.simProLabore=(typeof localStorage!=='undefined'&&localStorage.getItem('dre.simProLabore')==='1')||false;
 const SIM_ALUGUEL_VALOR=100000;
 function applySimAluguel(dados){
   if(!(S.emp==='consolidado'&&S.simAluguelEmp))return dados;
@@ -232,6 +233,43 @@ function applySimAluguel(dados){
     const c={...r};
     ADD.forEach(k=>{c[k+'_emp']=(c[k+'_emp']||0)+D;});
     SUB.forEach(k=>{c[k+'_emp']=(c[k+'_emp']||0)-D;});
+    return c;
+  });
+}
+window.setSimProLabore=function(b){
+  S.simProLabore=!!b;
+  try{localStorage.setItem('dre.simProLabore',S.simProLabore?'1':'0');}catch(e){}
+  if(S.modulo==='dre'){if(S.pag===1)renderDREP1();else if(S.pag===2)renderDREP2();}
+};
+function applySimProLabore(dados){
+  if(!S.simProLabore) return dados;
+  // Reclassifica pro-labore Diego, Thiago e Patricia:
+  // sai de despNaoOp e proLaboreXxx, entra em despPessoalAdm e cascata operacional
+  const SUFIXOS=['_tej','_sena','_emp'];
+  return dados.map(function(r){
+    var c=Object.assign({},r);
+    SUFIXOS.forEach(function(s){
+      var D=(c['proLaboreDiego'+s]||0)+(c['proLaboreThiago'+s]||0)+(c['proLaborePatricia'+s]||0);
+      if(!D) return;
+      // Sobe nas despesas operacionais
+      c['despPessoalAdm'+s]=(c['despPessoalAdm'+s]||0)+D;
+      c['despFixas'+s]=(c['despFixas'+s]||0)+D;
+      c['despOperacionais'+s]=(c['despOperacionais'+s]||0)+D;
+      // Cai no resultado operacional e cascata
+      c['ebitda'+s]=(c['ebitda'+s]||0)-D;
+      c['ebit'+s]=(c['ebit'+s]||0)-D;
+      c['resPeriodo'+s]=(c['resPeriodo'+s]||0)-D;
+      c['resLiquido'+s]=(c['resLiquido'+s]||0)-D;
+      // Zera nos não operacionais (reclassificado)
+      c['proLaboreDiego'+s]=0;
+      c['proLaboreThiago'+s]=0;
+      c['proLaborePatricia'+s]=0;
+      // Recalcula totais de proLaboreEmp (só Tubertino + Empresa ficam)
+      c['proLaboreEmp'+s]=(c['proLaboreTubertino'+s]||0)+(c['proLaboreEmpresa'+s]||0);
+      // despNaoOp cai pelo mesmo valor
+      c['despNaoOp'+s]=(c['despNaoOp'+s]||0)-D;
+      // resLucroLiq e resAposEmp NÃO mudam — é só reclassificação
+    });
     return c;
   });
 }
@@ -1139,7 +1177,7 @@ async function renderDRE(){
 
 async function renderDREP1(){
   const fp=document.getElementById('fp');
-  const dados=applySimAluguel(await getDadosDRE());
+  const dados=applySimProLabore(applySimAluguel(await getDadosDRE()));
   if(!dados.length){fp.innerHTML='<div class="errmsg">Não foi possível carregar os dados. Verifique se os CSVs estão na pasta <code>data/dre/</code> do GitHub.</div>';return;}
   if(!S.ini)S.ini=dados[0].rot;
   if(!S.fim)S.fim=dados[dados.length-1].rot;
@@ -1188,7 +1226,7 @@ async function renderDREP1(){
       <button class="qbtn ${sl.length===12?'active':''}" onclick="setQ(12,${n})">Últ. 12 meses</button>
       <button class="qbtn ${sl.length===dados.length?'active':''}" onclick="setQ(0,${n})">Período completo</button>
     </div></div>
-    <div class="tg"><label>Base A.V.</label><div class="qbtns">
+    <div class="tg"><label>Sim. Pró-Labore Diretores</label><div class="btngrp"><button class="qbtn ${!S.simProLabore?'active':''}" onclick="setSimProLabore(false)">OFF</button><button class="qbtn ${S.simProLabore?'active':''}" onclick="setSimProLabore(true)">ON</button></div></div><div class="tg"><label>Base A.V.</label><div class="qbtns">
       <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
       <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
     </div></div>
@@ -1196,7 +1234,7 @@ async function renderDREP1(){
       <button class="qbtn ${!S.simAluguelEmp?'active':''}" onclick="setSimAluguel(false)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>OFF</button>
       <button class="qbtn ${S.simAluguelEmp?'active':''}" onclick="setSimAluguel(true)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>ON</button>
     </div></div>
-  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}`;
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}${S.simProLabore?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: Pró-labore Diego, Thiago e Patricia reclassificados em Despesas de Pessoal (Adm)</span></div>':''}`;
 
   // Cards
   const cards=`<div class="cards">${KPI.map(it=>{
@@ -1359,7 +1397,7 @@ async function renderDREP1(){
 
 async function renderDREP2(){
   const fp=document.getElementById('fp');
-  const dados=applySimAluguel(await getDadosDRE());
+  const dados=applySimProLabore(applySimAluguel(await getDadosDRE()));
   if(!dados.length){fp.innerHTML='<div class="errmsg">Sem dados disponíveis.</div>';return;}
   const rots=dados.map(d=>d.rot);
   const rots25=rots.filter(r=>r.endsWith('/25')),rots26=rots.filter(r=>r.endsWith('/26'));
@@ -1380,7 +1418,7 @@ async function renderDREP2(){
       <button class="qbtn" onclick="presetDRE('sem1')">1º Sem 25 vs 26</button>
       <button class="qbtn" onclick="presetDRE('ano')">2025 vs 2026</button>
     </div></div>
-    <div class="tg"><label>Base A.V.</label><div class="qbtns">
+    <div class="tg"><label>Sim. Pró-Labore Diretores</label><div class="btngrp"><button class="qbtn ${!S.simProLabore?'active':''}" onclick="setSimProLabore(false)">OFF</button><button class="qbtn ${S.simProLabore?'active':''}" onclick="setSimProLabore(true)">ON</button></div></div><div class="tg"><label>Base A.V.</label><div class="qbtns">
       <button class="qbtn ${S.avBase==='rol'?'active':''}" onclick="setAvBase('rol')" title="Receita Operacional Líquida">ROL</button>
       <button class="qbtn ${S.avBase==='rbe'?'active':''}" onclick="setAvBase('rbe')" title="Receita Bruta Efetiva (Produtos)">RBE</button>
     </div></div>
@@ -1388,12 +1426,12 @@ async function renderDREP2(){
       <button class="qbtn ${!S.simAluguelEmp?'active':''}" onclick="setSimAluguel(false)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>OFF</button>
       <button class="qbtn ${S.simAluguelEmp?'active':''}" onclick="setSimAluguel(true)" ${S.emp!=='consolidado'?'disabled title="Aplicável apenas à Empresa Consolidada"':''}>ON</button>
     </div></div>
-  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}<div id="p2body"><div class="loading">Calculando...</div></div>`;
+  </div>${S.avBase==='rbe'?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">A.V. sobre Receita Bruta Efetiva (Produtos)</span></div>':''}${S.emp==='consolidado'&&S.simAluguelEmp?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: +R$ 100.000/mês de aluguel (Empresa Consolidada)</span></div>':''}${S.simProLabore?'<div style="font-size:11px;color:var(--muted);margin:-4px 0 8px 2px"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">Simulação ativa: Pró-labore Diego, Thiago e Patricia reclassificados em Despesas de Pessoal (Adm)</span></div>':''}<div id="p2body"><div class="loading">Calculando...</div></div>`;
   calcDREP2(dados,dAS,dAE,dBS,dBE);
 }
 
 window.presetDRE=async function(t){
-  const dados=applySimAluguel(await getDadosDRE());
+  const dados=applySimProLabore(applySimAluguel(await getDadosDRE()));
   const rots=dados.map(d=>d.rot);
   const has=r=>rots.includes(r);
   const last26=rots.filter(r=>r.endsWith('/26')).slice(-1)[0]||'mar/26';
