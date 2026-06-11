@@ -2475,6 +2475,7 @@ function valorGrandeza(d, gid){
   if(!d) return null;
   const suf=intelP3.empresa==='sena'?'_sena':intelP3.empresa==='consolidado'?'_emp':'_tej';
   if(gid==='pctMargem'){const b=d.vlc||0;return b?((d.margemV||0)/b)*100:null;}
+  if(gid==='recBrutaEfetiva') return d['recBrutaEfetiva'+suf]??d.recBrutaEfetiva??0;
   if(gid==='recLiq_dre')      return d['recLiq'+suf]??0;
   if(gid==='margemVenda_dre') return d['margemVenda'+suf]??0;
   if(gid==='pctMargemVenda'){const r=d['recLiq'+suf]||0;return r?((d['margemVenda'+suf]||0)/r)*100:null;}
