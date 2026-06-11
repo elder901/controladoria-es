@@ -1312,9 +1312,10 @@ async function renderDREP1(){
   let tabela=`<div class="section" id="dre-p1-wrap"><div class="shead"><h2>DRE — mês a mês</h2>
     <div style="display:flex;align-items:center;gap:12px">
       <span class="legend">Cada coluna mostra valor e A.V.% sobre Receita Líquida.</span>
+      <button class="dre-fs-btn" onclick="exportDREP1CSV()" title="Exportar CSV"><span>⬇</span> CSV</button>
       <button class="dre-fs-btn" onclick="dreToggleFS('dre-p1-wrap')"><span>⛶</span> Fullscreen</button>
     </div></div>
-    <div class="twrap"><table><thead><tr><th style="min-width:240px">Linha DRE</th>`;
+    <div class="twrap"><table id="dre-p1-tabela"><thead><tr><th style="min-width:240px">Linha DRE</th>`;
   sl.forEach(d=>{tabela+=`<th>${d.rot.toUpperCase()}</th>`;});
   tabela+=`<th class="ctot">TOTAL / ACUM.</th></tr></thead><tbody>`;
 
@@ -3548,6 +3549,34 @@ window.atualizarProjecao=function(){
 // EXPÕE FUNÇÕES GLOBAIS (necessário para GitHub Pages)
 // ============================================================
 window.setPag=function(p){S.pag=p;render();}
+window.exportDREP1CSV=function(){
+  var tabela=document.getElementById('dre-p1-tabela');
+  if(!tabela){alert('Tabela nao encontrada.');return;}
+  var rows=tabela.querySelectorAll('tr');
+  var linhas=[];
+  for(var i=0;i<rows.length;i++){
+    var cells=rows[i].querySelectorAll('th,td');
+    var linha=[];
+    for(var j=0;j<cells.length;j++){
+      var cv=cells[j].querySelector('.cv');
+      var txt=(cv?cv.textContent:cells[j].textContent).trim();
+      linha.push(txt.replace(/;/g,' '));
+    }
+    if(linha.join('').trim()) linhas.push(linha.join(';'));
+  }
+  var bom=String.fromCharCode(0xFEFF);
+  var csv=bom+linhas.join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  var ini=(typeof S!=='undefined'&&S.ini)||'inicio';
+  var fim=(typeof S!=='undefined'&&S.fim)||'fim';
+  var emp=(typeof S!=='undefined'&&S.emp)||'emp';
+  a.download='DRE_'+emp+'_'+ini+'_'+fim+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
 window.exportDREP2CSV=function(){
   var tabela=document.getElementById('dre-p2-tabela');
   if(!tabela){alert('Tabela nao encontrada.');return;}
