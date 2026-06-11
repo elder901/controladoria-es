@@ -86,6 +86,24 @@ tbody tr.rs td.ctot{background:#e4edff}
 @media(max-width:1200px){.cards{grid-template-columns:repeat(4,1fr)}.analysis{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.analysis{grid-template-columns:repeat(2,1fr)}.p2grid{grid-template-columns:1fr}}
 @media(max-width:500px){.cards,.analysis{grid-template-columns:1fr}}
+/* DRE Fullscreen */
+.dre-fullscreen{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;
+  background:var(--bg);overflow:auto;padding:16px;box-sizing:border-box;
+}
+.dre-fullscreen .section{margin-bottom:0}
+.dre-fullscreen .twrap{max-height:calc(100vh - 120px);overflow:auto}
+.dre-fs-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:var(--card);border-radius:10px;
+  margin-bottom:12px;border:1px solid var(--line);
+}
+.dre-fs-btn{
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;
+  font-weight:700;padding:5px 12px;border:1px solid var(--line);
+  border-radius:7px;background:var(--card);cursor:pointer;color:var(--ink);
+}
+.dre-fs-btn:hover{background:var(--soft)}
 </style>
 </head>
 <body>
@@ -1290,8 +1308,11 @@ async function renderDREP1(){
     ]},
   ];
 
-  let tabela=`<div class="section"><div class="shead"><h2>DRE — mês a mês</h2>
-    <span class="legend">Cada coluna mostra valor e A.V.% sobre Receita Líquida. Última coluna = período filtrado.</span></div>
+  let tabela=`<div class="section" id="dre-p1-wrap"><div class="shead"><h2>DRE — mês a mês</h2>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="legend">Cada coluna mostra valor e A.V.% sobre Receita Líquida.</span>
+      <button class="dre-fs-btn" onclick="dreToggleFS('dre-p1-wrap')"><span>⛶</span> Fullscreen</button>
+    </div></div>
     <div class="twrap"><table><thead><tr><th style="min-width:240px">Linha DRE</th>`;
   sl.forEach(d=>{tabela+=`<th>${d.rot.toUpperCase()}</th>`;});
   tabela+=`<th class="ctot">TOTAL / ACUM.</th></tr></thead><tbody>`;
@@ -1553,10 +1574,11 @@ function calcDREP2(dados,aS,aE,bS,bE){
         <p style="font-size:13px"><strong>Média mensal EBITDA:</strong><br>A = <strong>${fM(A.ebitda/A.months)}</strong><br>B = <strong>${fM(B.ebitda/B.months)}</strong></p>
       </div>
     </div>
-    <div class="section"><div class="shead"><h2>Comparativo DRE Econômica</h2>
-      <div style="display:flex;gap:6px">
+    <div class="section" id="dre-p2-wrap"><div class="shead"><h2>Comparativo DRE Econômica</h2>
+      <div style="display:flex;gap:6px;align-items:center">
         <button class="qbtn ${dreP2view==='main'?'active':''}" onclick="window.dreP2view='main';calcDREP2wrap()">Principais linhas</button>
         <button class="qbtn ${dreP2view==='full'?'active':''}" onclick="window.dreP2view='full';calcDREP2wrap()">DRE completa</button>
+        <button class="dre-fs-btn" onclick="dreToggleFS('dre-p2-wrap')"><span>⛶</span> Fullscreen</button>
       </div></div>
       <div class="twrap"><table><thead><tr>
         <th style="min-width:200px;text-align:left">Linha DRE</th>
@@ -3524,6 +3546,18 @@ window.atualizarProjecao=function(){
 // EXPÕE FUNÇÕES GLOBAIS (necessário para GitHub Pages)
 // ============================================================
 window.setPag=function(p){S.pag=p;render();}
+window.dreToggleFS=function(elId){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  const isFS=el.classList.toggle('dre-fullscreen');
+  // Atualiza ícone e texto do botão
+  const btn=el.querySelector('.dre-fs-btn');
+  if(btn) btn.innerHTML=isFS
+    ?'<span>✕</span> Sair do Fullscreen'
+    :'<span>⛶</span> Fullscreen';
+  // Trava/destrava scroll do body
+  document.body.style.overflow=isFS?'hidden':'';
+};
 window.setModulo=function(mod,btn){
   S.modulo=mod;S.pag=1;S.ini=null;S.fim=null;
   S.p2aS=null;S.p2aE=null;S.p2bS=null;S.p2bE=null;
