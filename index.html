@@ -327,6 +327,7 @@ function combinar(op,hd){
 }
 // setEmp e setPag definidas como window.* abaixo
 function render(){
+  document.body.style.overflow=''; // limpa fullscreen de módulo anterior
   if(S.modulo==='dre')renderDRE();
   else if(S.modulo==='bp')renderBP();
   else if(S.modulo==='intel')renderIntel();
