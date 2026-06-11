@@ -2441,25 +2441,56 @@ let intelP3 = {
   ini:null, fim:null,
 };
 const GRANDEZAS_P3 = [
-  {id:'recBrutaEfetiva', label:'Receita Bruta Efetiva (Produtos)', fmt:'m', cor:'#1d4ed8'},
-  {id:'totVendas', label:'Faturamento Recebido (Caixa)', fmt:'m', cor:'#7c3aed'},
-  {id:'vlc',       label:'Vendas Líquidas em Caixa',    fmt:'m', cor:'#0ea5e9'},
-  {id:'margemV',   label:'Margem de Venda (R$)',        fmt:'m', cor:'#10b981'},
-  {id:'pctMargem', label:'% Margem (margem/VLC)',       fmt:'p', cor:'#15803d'},
-  {id:'lucroBruto',label:'Lucro Bruto',                 fmt:'m', cor:'#8b5cf6'},
-  {id:'lucroOp',   label:'Lucro das Operações',         fmt:'m', cor:'#6366f1'},
-  {id:'lucroLiq',  label:'Lucro Líquido',               fmt:'m', cor:'#f59e0b'},
-  {id:'varCaixa',  label:'Resultado de Caixa (FC)',     fmt:'m', cor:'#06b6d4'},
-  {id:'totCustos', label:'Total Custos Operacionais',   fmt:'m', cor:'#ef4444'},
-  {id:'despPess',  label:'Folha (Desp. Pessoal)',       fmt:'m', cor:'#db2777'},
+  // FC — Financeiro (regime de caixa)
+  {id:'totVendas',       label:'Faturamento Recebido',       fmt:'m', cor:'#7c3aed', fonte:'FC'},
+  {id:'vlc',             label:'Vendas Líquidas em Caixa',   fmt:'m', cor:'#0ea5e9', fonte:'FC'},
+  {id:'margemV',         label:'Margem de Venda R$',         fmt:'m', cor:'#10b981', fonte:'FC'},
+  {id:'pctMargem',       label:'% Margem de Venda',          fmt:'p', cor:'#15803d', fonte:'FC'},
+  {id:'totCustos',       label:'Total Custos Operacionais',  fmt:'m', cor:'#ef4444', fonte:'FC'},
+  {id:'despPess',        label:'Folha de Pessoal',           fmt:'m', cor:'#db2777', fonte:'FC'},
+  {id:'varCaixa',        label:'Resultado de Caixa',         fmt:'m', cor:'#06b6d4', fonte:'FC'},
+  // DRE — Econômica (regime de competência)
+  {id:'recBrutaEfetiva', label:'Receita Bruta Efetiva',      fmt:'m', cor:'#1d4ed8', fonte:'DRE'},
+  {id:'recLiq_dre',      label:'Receita Líquida',            fmt:'m', cor:'#2563eb', fonte:'DRE'},
+  {id:'margemVenda_dre', label:'Margem de Venda R$',         fmt:'m', cor:'#059669', fonte:'DRE'},
+  {id:'pctMargemVenda',  label:'% Margem de Venda',          fmt:'p', cor:'#047857', fonte:'DRE'},
+  {id:'cmvTotal_dre',    label:'CMV',                        fmt:'m', cor:'#dc2626', fonte:'DRE'},
+  {id:'pctCMV_dre',      label:'% CMV / Rec. Líquida',      fmt:'p', cor:'#b91c1c', fonte:'DRE'},
+  {id:'despFixas_dre',   label:'Despesas Fixas',             fmt:'m', cor:'#d97706', fonte:'DRE'},
+  {id:'despVar_dre',     label:'Despesas Variáveis',         fmt:'m', cor:'#b45309', fonte:'DRE'},
+  {id:'pessoal_dre',     label:'Folha de Pessoal',           fmt:'m', cor:'#be185d', fonte:'DRE'},
+  {id:'pctPessoal_dre',  label:'% Folha / Rec. Líquida',    fmt:'p', cor:'#9d174d', fonte:'DRE'},
+  {id:'lucroBruto',      label:'Lucro Bruto',                fmt:'m', cor:'#8b5cf6', fonte:'DRE'},
+  {id:'ebitda_dre',      label:'EBITDA',                     fmt:'m', cor:'#7c3aed', fonte:'DRE'},
+  {id:'pctEbitda_dre',   label:'% EBITDA / Rec. Líquida',   fmt:'p', cor:'#6d28d9', fonte:'DRE'},
+  {id:'lucroOp',         label:'Lucro das Operações',        fmt:'m', cor:'#6366f1', fonte:'DRE'},
+  {id:'lucroLiq',        label:'Lucro Líquido',              fmt:'m', cor:'#f59e0b', fonte:'DRE'},
+  // Indicadores — cruzam FC + DRE
+  {id:'pme_ind',         label:'PME (dias)',                  fmt:'d', cor:'#0891b2', fonte:'IND'},
+  {id:'pmr_ind',         label:'PMR (dias)',                  fmt:'d', cor:'#0e7490', fonte:'IND'},
+  {id:'pmp_ind',         label:'PMP (dias)',                  fmt:'d', cor:'#155e75', fonte:'IND'},
+  {id:'ciclo_ind',       label:'Ciclo Financeiro (dias)',     fmt:'d', cor:'#164e63', fonte:'IND'},
 ];
 function valorGrandeza(d, gid){
   if(!d) return null;
-  if(gid==='pctMargem'){
-    const base=d.vlc||0; if(!base) return null;
-    return ((d.margemV||0)/base)*100;
-  }
-  return d[gid] ?? 0;
+  const suf=intelP3.empresa==='sena'?'_sena':intelP3.empresa==='consolidado'?'_emp':'_tej';
+  if(gid==='pctMargem'){const b=d.vlc||0;return b?((d.margemV||0)/b)*100:null;}
+  if(gid==='recLiq_dre')      return d['recLiq'+suf]??0;
+  if(gid==='margemVenda_dre') return d['margemVenda'+suf]??0;
+  if(gid==='pctMargemVenda'){const r=d['recLiq'+suf]||0;return r?((d['margemVenda'+suf]||0)/r)*100:null;}
+  if(gid==='cmvTotal_dre')    return d['cmvTotal'+suf]??0;
+  if(gid==='pctCMV_dre'){const r=d['recLiq'+suf]||0;return r?((d['cmvTotal'+suf]||0)/r)*100:null;}
+  if(gid==='despFixas_dre')   return d['despFixas'+suf]??0;
+  if(gid==='despVar_dre')     return d['despVariaveis'+suf]??0;
+  if(gid==='pessoal_dre')     return (d['despPessoalLoja'+suf]||0)+(d['despPessoalAdm'+suf]||0);
+  if(gid==='pctPessoal_dre'){const r=d['recLiq'+suf]||0;const p=(d['despPessoalLoja'+suf]||0)+(d['despPessoalAdm'+suf]||0);return r?(p/r)*100:null;}
+  if(gid==='ebitda_dre')      return d['ebitda'+suf]??0;
+  if(gid==='pctEbitda_dre'){const r=d['recLiq'+suf]||0;return r?((d['ebitda'+suf]||0)/r)*100:null;}
+  if(gid==='pme_ind') return d.pme??null;
+  if(gid==='pmr_ind') return d.pmr??null;
+  if(gid==='pmp_ind') return d.pmp??null;
+  if(gid==='ciclo_ind'){const pme=d.pme??null,pmr=d.pmr??null,pmp=d.pmp??null;return(pme!=null&&pmr!=null&&pmp!=null)?pme+pmr-pmp:null;}
+  return d[gid]??0;
 }
 async function getDadosCompP3(empresa){
   // Helper: injeta campos do DRE (competência) nos registros do FC por rot
@@ -2467,10 +2498,13 @@ async function getDadosCompP3(empresa){
     try{
       const dre=await getDadosDRE();
       const mapa={}; for(const d of dre){ if(d&&d.rot) mapa[d.rot]=d; }
-      const CAMPOS_DRE=['recBruta','recBrutaEfetiva','recLiq'];
+      const CAMPOS_DRE=['recBruta','recBrutaEfetiva','recLiq','margemVenda','cmvTotal','despFixas','despVariaveis','despPessoalLoja','despPessoalAdm','ebitda','lucroOp','lucroLiq','resLucroLiq'];
+      const SUFIXOS=['_tej','_sena','_emp'];
       for(const f of fcArr){
         const dd=mapa[f.rot]; if(!dd) continue;
-        for(const c of CAMPOS_DRE){ if(f[c]==null) f[c]=dd[c]||0; }
+        for(const c of CAMPOS_DRE){
+          for(const s of SUFIXOS){ if(f[c+s]==null && dd[c+s]!=null) f[c+s]=dd[c+s]; }
+        }
       }
     }catch(e){ /* DRE pode não existir para alguma empresa */ }
     return fcArr;
@@ -2505,14 +2539,26 @@ async function renderIntelP3(){
 
   const optsMes=r=>dados.map(d=>`<option value="${d.rot}" ${d.rot===r?'selected':''}>${d.rot}</option>`).join('');
 
-  const checkboxes=GRANDEZAS_P3.map(g=>{
-    const chk=intelP3.grandezas.includes(g.id);
-    const dis=!chk && intelP3.grandezas.length>=3;
-    return `<label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:${chk?'#eef2ff':'#fff'};cursor:${dis?'not-allowed':'pointer'};opacity:${dis?0.4:1}">
-      <input type="checkbox" ${chk?'checked':''} ${dis?'disabled':''} onchange="toggleGrandezaP3('${g.id}')" style="cursor:${dis?'not-allowed':'pointer'}"/>
-      <span style="display:inline-block;width:10px;height:10px;background:${g.cor};border-radius:2px"></span>
-      ${g.label}
-    </label>`;
+  // Agrupar grandezas por fonte para exibir com header
+  const FONTES=[
+    {key:'FC',  label:'FC — Financeiro',          cor:'#185FA5'},
+    {key:'DRE', label:'DRE — Econômica',           cor:'#0F6E56'},
+    {key:'IND', label:'Indicadores (FC + DRE)',    cor:'#534AB7'},
+  ];
+  const checkboxesPorGrupo=FONTES.map(f=>{
+    const itens=GRANDEZAS_P3.filter(g=>g.fonte===f.key).map(g=>{
+      const chk=intelP3.grandezas.includes(g.id);
+      const dis=!chk && intelP3.grandezas.length>=3;
+      return `<label title="${g.label} — ${f.label}" style="display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:${chk?f.cor+'22':'transparent'};cursor:${dis?'not-allowed':'pointer'};opacity:${dis?0.4:1}">
+        <input type="checkbox" ${chk?'checked':''} ${dis?'disabled':''} onchange="toggleGrandezaP3('${g.id}')" style="cursor:${dis?'not-allowed':'pointer'}"/>
+        <span style="display:inline-block;width:8px;height:8px;background:${g.cor};border-radius:2px;flex-shrink:0"></span>
+        ${g.label}
+      </label>`;
+    }).join('');
+    return `<div style="margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:${f.cor};text-transform:uppercase;margin-bottom:4px;padding-left:2px">${f.label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${itens}</div>
+    </div>`;
   }).join('');
 
   const toolbar=`<div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">
@@ -2529,8 +2575,8 @@ async function renderIntelP3(){
       <div style="font-size:11px;color:var(--muted);align-self:flex-end;padding-bottom:6px">${sl.length} mês(es) · selecione até 3 grandezas</div>
     </div>
     <div>
-      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px">Grandezas (até 3)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${checkboxes}</div>
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:8px">Grandezas (até 3)</label>
+      ${checkboxesPorGrupo}
     </div>
   </div>`;
 
@@ -2547,7 +2593,7 @@ async function renderIntelP3(){
   const kpis=series.map(s=>{
     const v0=s.valores[0]??0, vN=s.valores[s.valores.length-1]??0;
     const dAbs=vN-v0; const dPct=v0?(dAbs/Math.abs(v0))*100:null;
-    const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):fM;
+    const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):s.fmt==='d'?(x=>x.toFixed(0)+' d'):fM;
     const corDelta=dAbs>=0?'var(--good)':'var(--bad)';
     return `<div class="kcard" style="min-height:0;padding:12px;border-top:3px solid ${s.cor}">
       <h3 style="color:${s.cor}">${s.label}</h3>
@@ -2610,7 +2656,7 @@ function buildChartLinhaP3(sl, series){
   // Grid + labels Y (apenas se eixo compartilhado)
   let gridY='';
   if(compartilhaEixo){
-    const fmtTick=fmts[0]==='p'?(x=>x.toFixed(0)+'%'):(x=>{
+    const fmtTick=fmts[0]==='p'?(x=>x.toFixed(0)+'%'):fmts[0]==='d'?(x=>x.toFixed(0)+' d'):(x=>{
       const abs=Math.abs(x);
       if(abs>=1e6) return 'R$ '+(x/1e6).toFixed(1)+'M';
       if(abs>=1e3) return 'R$ '+(x/1e3).toFixed(0)+'k';
@@ -2648,7 +2694,7 @@ function buildChartLinhaP3(sl, series){
     plot+=`<polyline points="${pts}" fill="none" stroke="${s.cor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     s.valores.forEach((v,i)=>{
       if(v==null||!isFinite(v))return;
-      const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):fM;
+      const fmtV=s.fmt==='p'?(x=>fPS(x,1)+'%'):s.fmt==='d'?(x=>x.toFixed(0)+' d'):fM;
       plot+=`<circle cx="${xPos(i)}" cy="${yPos(v,s).toFixed(1)}" r="3.5" fill="#fff" stroke="${s.cor}" stroke-width="2">
         <title>${s.label} · ${sl[i].rot}: ${fmtV(v)}</title></circle>`;
     });
