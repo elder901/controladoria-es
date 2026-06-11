@@ -197,7 +197,7 @@ const CM={
   'Acionistas':'acionistas',
   'Recurso de Ligadas':'recursoLigadas',
   'Recurso Enviado a Ligadas':'recursoEnviado',
-  'VARIAÇÃO DE CAIXA':'varCaixa',
+  'Movimento Final':'varCaixa',
   'Entradas de Correspondentes':'entCorresp',
   'Saída de Correspondentes':'saiCorresp',
 };
@@ -267,7 +267,7 @@ function parseCSV(txt,arq){
     54:'fluxoAdiant',55:'adiantEfet',56:'adiantReceb',
     57:'fluxoCheques',58:'chqCompensados',59:'chqEmitidos',
     60:'necCG',61:'acionistas',62:'recursoLigadas',63:'recursoEnviado',
-    64:'varCaixa',65:'resgate',66:'aplicacao',70:'movFinal',
+    65:'resgate',66:'aplicacao',70:'varCaixa',
     67:'entCorresp',68:'saiCorresp'};
   for(const [i,c] of Object.entries(L)){
     const l=lines[+i];if(!l)continue;
@@ -348,7 +348,7 @@ async function renderP1(){
   const penLabel=mesmoPeriodoAnoAnt?rotAnoAnt:(sl.length>1?sl[sl.length-2].rot:null);
   fp.innerHTML=buildToolbar1(dados,sl)+buildCards(ult,pen,penLabel,!!mesmoPeriodoAnoAnt)+buildAnalysis(ult,mesmoPeriodoAnoAnt||pen,sl,tot)+'<div id="bancos-box"></div>'+buildTabela(sl,tot);
   buildSparks(dados,sl);
-  renderBancosBox(ult.rot, ult.movFinal||ult.varCaixa||0, sl, tot);
+  renderBancosBox(ult.rot, ult.varCaixa||0, sl, tot);
 }
 
 // ============================================================
