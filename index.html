@@ -896,81 +896,79 @@ window.preset=async function(t){
 };
 const MET_MAIN=[
   {l:'Vendas Líquidas em Caixa',c:'vlc'},
-  {l:'Compras',c:'compras'},
-  {l:'Margem de Venda',c:'margemV'},
+  {l:'( - ) Compras',c:'compras',nat:'d'},
+  {l:'( = ) Margem de Venda',c:'margemV'},
   {l:'Lucro Bruto',c:'lucroBruto'},
-  {l:'Despesas C/ Pessoal',c:'despPess'},
-  {l:'Despesas Administrativas',c:'despAdm'},
-  {l:'Alugueis',c:'alugueis'},
-  {l:'Taxas Adm de Cartões',c:'taxCart'},
-  {l:'Total Custos Operacionais',c:'totCustos'},
+  {l:'( - ) Despesas C/ Pessoal',c:'despPess',nat:'d'},
+  {l:'( - ) Despesas Administrativas',c:'despAdm',nat:'d'},
+  {l:'( - ) Alugueis',c:'alugueis',nat:'d'},
+  {l:'( - ) Taxas Adm de Cartões',c:'taxCart',nat:'d'},
+  {l:'( - ) Total Custos Operacionais',c:'totCustos',nat:'d'},
   {l:'LUCRO DAS OPERAÇÕES',c:'lucroOp'},
   {l:'Resultado Financeiro',c:'resFin'},
   {l:'Lucro Antes do IR',c:'lucroAIR'},
+  {l:'( - ) Imposto de Renda',c:'IR',nat:'d'},
   {l:'Lucro Líquido',c:'lucroLiq'},
-  {l:'Imobilizado/Investimentos',c:'imobilizado'},
-  {l:'Empréstimos Bancários',c:'emprestimos'},
-  {l:'NECESSIDADE DE C.G I',c:'necCG'},
-  {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},
+  {l:'Movimento Final de Caixa',c:'varCaixa'},
 ];
 const MET_FULL=[
   {l:'Total de Vendas Recebidas',c:'totVendas'},
-  {l:'Recebimentos S/ Mov. Caixa',c:'recSemMov'},
-  {l:'Deduções',c:'deducoes'},
-  {l:'Vendas Líquidas em Caixa',c:'vlc'},
-  {l:'Compras',c:'compras'},
-  {l:'Margem de Venda',c:'margemV'},
-  {l:'Impostos Sobre Vendas',c:'impostos'},
-  {l:'Acordos Comerciais',c:'acordos'},
-  {l:'Trocas/Devoluções Recebidas',c:'trocas'},
-  {l:'Sub Total Acordos Comerciais',c:'subAcordos'},
-  {l:'Outras Entradas Operacionais',c:'outEnt'},
-  {l:'Outras Saídas Operacionais',c:'outSai'},
-  {l:'Cheques Devolvidos Recebidos',c:'chqRec'},
+  {l:'( - ) Recebimentos S/ Mov. Caixa',c:'recSemMov',nat:'d'},
+  {l:'( - ) Deduções',c:'deducoes',nat:'d'},
+  {l:'( = ) Vendas Líquidas em Caixa',c:'vlc'},
+  {l:'( - ) Compras',c:'compras',nat:'d'},
+  {l:'( = ) Margem de Venda',c:'margemV'},
+  {l:'( - ) Impostos Sobre Vendas',c:'impostos',nat:'d'},
+  {l:'( + ) Acordos Comerciais',c:'acordos'},
+  {l:'( + ) Trocas/Devoluções Recebidas',c:'trocas'},
+  {l:'( = ) Sub Total Acordos Comerciais',c:'subAcordos'},
+  {l:'( + ) Outras Entradas Operacionais',c:'outEnt'},
+  {l:'( - ) Outras Saídas Operacionais',c:'outSai',nat:'d'},
+  {l:'( + ) Cheques Devolvidos Recebidos',c:'chqRec'},
   {l:'Lucro Bruto',c:'lucroBruto'},
-  {l:'Despesas Tributárias',c:'despTrib'},
-  {l:'Desp. Tributárias - Multas',c:'despMult'},
-  {l:'Fretes',c:'fretes'},
-  {l:'Despesas C/ Pessoal',c:'despPess'},
-  {l:'Despesas Administrativas',c:'despAdm'},
-  {l:'Despesas Indedutíveis',c:'despInded'},
-  {l:'Doações e Patrocínios',c:'doacoes'},
-  {l:'Alugueis',c:'alugueis'},
-  {l:'Taxas Adm de Cartões',c:'taxCart'},
-  {l:'Recuperação de Despesas',c:'recupDesp'},
-  {l:'Total Custos Operacionais',c:'totCustos'},
+  {l:'( - ) Despesas Tributárias',c:'despTrib',nat:'d'},
+  {l:'( - ) Desp. Tributárias - Multas',c:'despMult',nat:'d'},
+  {l:'( - ) Fretes',c:'fretes',nat:'d'},
+  {l:'( - ) Despesas C/ Pessoal',c:'despPess',nat:'d'},
+  {l:'( - ) Despesas Administrativas',c:'despAdm',nat:'d'},
+  {l:'( - ) Despesas Indedutíveis',c:'despInded',nat:'d'},
+  {l:'( - ) Doações e Patrocínios',c:'doacoes',nat:'d'},
+  {l:'( - ) Alugueis',c:'alugueis',nat:'d'},
+  {l:'( - ) Taxas Adm de Cartões',c:'taxCart',nat:'d'},
+  {l:'( + ) Recuperação de Despesas',c:'recupDesp'},
+  {l:'( - ) Total Custos Operacionais',c:'totCustos',nat:'d'},
   {l:'LUCRO DAS OPERAÇÕES',c:'lucroOp'},
   {l:'Resultado Financeiro',c:'resFin'},
-  {l:'Receita Financeira',c:'recFin'},
-  {l:'Despesas Financeiras',c:'despFin'},
+  {l:'( + ) Receita Financeira',c:'recFin'},
+  {l:'( - ) Despesas Financeiras',c:'despFin',nat:'d'},
   {l:'Lucro Antes do IR',c:'lucroAIR'},
-  {l:'Imposto de Renda',c:'IR'},
+  {l:'( - ) Imposto de Renda',c:'IR',nat:'d'},
   {l:'Lucro Líquido',c:'lucroLiq'},
   {l:'Fluxo Invest. & Financiamentos',c:'fluxoInvest'},
-  {l:'SAÍDAS (Invest. & Fin.)',c:'fluxoSaidas'},
-  {l:'Empréstimos Bancários',c:'emprestimos'},
-  {l:'Parcelamentos',c:'parcelamentos'},
-  {l:'Imobilizado/Investimentos',c:'imobilizado'},
-  {l:'Juros S/ Empréstimos',c:'jurosEmprestimos'},
-  {l:'ENTRADAS (Invest. & Fin.)',c:'fluxoEntradas'},
-  {l:'Empréstimos Recebidos',c:'emprestimosEnt'},
-  {l:'Venda de Imobilizados',c:'vendaImob'},
-  {l:'Dividendos Outras Empresas',c:'dividendos'},
+  {l:'( - ) SAÍDAS (Invest. & Fin.)',c:'fluxoSaidas',nat:'d'},
+  {l:'( - ) Empréstimos Bancários',c:'emprestimos',nat:'d'},
+  {l:'( - ) Parcelamentos',c:'parcelamentos',nat:'d'},
+  {l:'( - ) Imobilizado/Investimentos',c:'imobilizado',nat:'d'},
+  {l:'( - ) Juros S/ Empréstimos',c:'jurosEmprestimos',nat:'d'},
+  {l:'( + ) ENTRADAS (Invest. & Fin.)',c:'fluxoEntradas'},
+  {l:'( + ) Empréstimos Recebidos',c:'emprestimosEnt'},
+  {l:'( + ) Venda de Imobilizados',c:'vendaImob'},
+  {l:'( + ) Dividendos Outras Empresas',c:'dividendos'},
   {l:'Fluxo dos Adiantamentos',c:'fluxoAdiant'},
-  {l:'Adiantamentos Efetuados',c:'adiantEfet'},
-  {l:'Adiantamentos Recebidos',c:'adiantReceb'},
+  {l:'( - ) Adiantamentos Efetuados',c:'adiantEfet',nat:'d'},
+  {l:'( + ) Adiantamentos Recebidos',c:'adiantReceb'},
   {l:'Fluxo dos Cheques Emitidos',c:'fluxoCheques'},
-  {l:'Cheques Compensados',c:'chqCompensados'},
-  {l:'Cheques Emitidos',c:'chqEmitidos'},
-  {l:'NECESSIDADE DE C.G I',c:'necCG'},
-  {l:'Acionistas',c:'acionistas'},
-  {l:'Recurso de Ligadas',c:'recursoLigadas'},
-  {l:'Recurso Enviado a Ligadas',c:'recursoEnviado'},
-  {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},
-  {l:'Entradas de Correspondentes',c:'entCorresp'},
-  {l:'Saída de Correspondentes',c:'saiCorresp'},
+  {l:'( - ) Cheques Compensados',c:'chqCompensados',nat:'d'},
+  {l:'( + ) Cheques Emitidos',c:'chqEmitidos'},
+  {l:'Necessidade de C.G.',c:'necCG',nat:'d'},
+  {l:'Movimento Final de Caixa',c:'varCaixa'},
 ];
 let p2view='main';
+// Cor por natureza da conta: despesa caindo = bom (verde); receita subindo = bom
+function dclsNat(d,nat){
+  if(nat==='d') return d<=0?'good':'bad';
+  return d>=0?'good':'bad';
+}
 function calcP2(dados,aS,aE,bS,bE){
   const body=document.getElementById('p2body');if(!body)return;
   const rots=dados.map(d=>d.rot);
@@ -982,12 +980,12 @@ function calcP2(dados,aS,aE,bS,bE){
   const df=(a,b)=>{const d=b-a,p=a?((d/Math.abs(a))*100):0;return{d,p};};
   const KPI=[
     {l:'Vendas em Caixa',c:'vlc'},{l:'Margem de Venda',c:'margemV'},
-    {l:'LUCRO OPERAÇÕES',c:'lucroOp'},{l:'Lucro Líquido',c:'lucroLiq'},
-    {l:'VARIAÇÃO DE CAIXA',c:'varCaixa'},{l:'Resultado Financeiro',c:'resFin'},
-    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Total Custos Oper.',c:'totCustos'},
+    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Total Custos Oper.',c:'totCustos',nat:'d'},
+    {l:'LUCRO OPERAÇÕES',c:'lucroOp'},{l:'Resultado Financeiro',c:'resFin'},
+    {l:'Lucro Líquido',c:'lucroLiq'},{l:'MOVIMENTO DE CAIXA',c:'varCaixa'},
   ];
   const cards=KPI.map(m=>{
-    const{d,p}=df(A[m.c]||0,B[m.c]||0);const cls=d>=0?'good':'bad';
+    const{d,p}=df(A[m.c]||0,B[m.c]||0);const cls=dclsNat(d,m.nat);
     return `<div class="kcard" style="min-height:0;padding:12px">
       <h3>${m.l}</h3>
       <div class="kval" style="font-size:18px">${fM(B[m.c]||0)}</div>
@@ -1002,15 +1000,15 @@ function calcP2(dados,aS,aE,bS,bE){
   }).join('');
   const MET_BAR=[
     {l:'Vendas Líquidas em Caixa',c:'vlc'},{l:'Margem de Venda',c:'margemV'},
-    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Custos Operacionais',c:'totCustos'},
+    {l:'Lucro Bruto',c:'lucroBruto'},{l:'Custos Operacionais',c:'totCustos',nat:'d'},
     {l:'Lucro das Operações',c:'lucroOp'},{l:'Resultado Financeiro',c:'resFin'},
-    {l:'Lucro Líquido',c:'lucroLiq'},{l:'Variação de Caixa',c:'varCaixa'},
+    {l:'Lucro Líquido',c:'lucroLiq'},{l:'Movimento de Caixa',c:'varCaixa'},
   ];
   const maxV=Math.max(...MET_BAR.map(m=>Math.max(Math.abs(A[m.c]||0),Math.abs(B[m.c]||0))),1);
   const barras=MET_BAR.map(m=>{
     const wa=(Math.abs(A[m.c]||0)/maxV*100).toFixed(1),wb=(Math.abs(B[m.c]||0)/maxV*100).toFixed(1);
     const{d,p}=df(A[m.c]||0,B[m.c]||0);
-    return `<div class="bar-row"><div>${m.l}</div><div class="bar-track"><div class="bar-a" style="width:${wa}%"></div><div class="bar-b" style="width:${wb}%"></div></div><div class="${dcls(d)}">${fP(p)}</div></div>`;
+    return `<div class="bar-row"><div>${m.l}</div><div class="bar-track"><div class="bar-a" style="width:${wa}%"></div><div class="bar-b" style="width:${wb}%"></div></div><div class="${dclsNat(d,m.nat)}">${fP(p)}</div></div>`;
   }).join('');
   const cv=df(A.vlc,B.vlc),cc=df(A.totCustos,B.totCustos),cl=df(A.lucroLiq,B.lucroLiq),cvc=df(A.varCaixa,B.varCaixa);
   const c=v=>v>=0?'good':'bad';
@@ -1032,9 +1030,9 @@ function calcP2(dados,aS,aE,bS,bE){
       <td style="font-size:12px;font-weight:700;text-align:left;min-width:200px">${m.l}</td>
       <td><div class="cv">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${fPS(avA,2)}%</div></td>
       <td><div class="cv">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${fPS(avB,2)}%</div></td>
-      <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
-      <td class="cv ${dcls(d)}">${fM(d)}</td>
-      <td class="cv ${dcls(d)}">${fP(p)}</td>
+      <td class="cv ${dclsNat(dpp,m.nat)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
+      <td class="cv ${dclsNat(d,m.nat)}">${fM(d)}</td>
+      <td class="cv ${dclsNat(d,m.nat)}">${fP(p)}</td>
       <td class="cv">${fM((A[m.c]||0)/A.months)}</td>
       <td class="cv">${fM((B[m.c]||0)/B.months)}</td>
     </tr>`;
