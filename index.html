@@ -1296,71 +1296,71 @@ async function renderDREP1(){
   const EST_DRE=[
     {g:'Receita',ls:[
       {l:'Receita Bruta Operacional',c:'recBruta'},
-      {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
+      {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos',nat:'d'},
       {l:'Receita Bruta Efetiva (Produtos)',c:'recBrutaEfetiva'},
-      {l:'( - ) Impostos sobre Vendas',c:'impostos'},
-      {l:'( - ) Devoluções de Venda',c:'devolucoes'},
+      {l:'( - ) Impostos sobre Vendas',c:'impostos',nat:'d'},
+      {l:'( - ) Devoluções de Venda',c:'devolucoes',nat:'d'},
       {l:'Receita Operacional Líquida',c:'recLiq',s:true},
     ]},
     {g:'Custo e Margem',ls:[
       {l:'CMV Total',c:'cmvTotal'},
-      {l:'( - ) CMV Produtos',c:'cmv'},
-      {l:'( - ) CMV Devoluções',c:'cmvDevol'},
+      {l:'( - ) CMV Produtos',c:'cmv',nat:'d'},
+      {l:'( - ) CMV Devoluções',c:'cmvDevol',nat:'d'},
       {l:'Margem de Venda',c:'margemVenda',s:true},
     ]},
     {g:'Despesas Variáveis',ls:[
       {l:'Despesas Variáveis Total',c:'despVariaveis'},
-      {l:'( - ) Despesas c/ Vendas',c:'despVendas'},
-      {l:'( - ) Despesas c/ Vendas — Financeiras',c:'despFinanceiras'},
-      {l:'( - ) Perdas de Mercadorias',c:'perdasMerc'},
-      {l:'( - ) Falta de Mercadorias',c:'faltaMerc'},
+      {l:'( - ) Despesas c/ Vendas',c:'despVendas',nat:'d'},
+      {l:'( - ) Despesas c/ Vendas — Financeiras',c:'despFinanceiras',nat:'d'},
+      {l:'( - ) Perdas de Mercadorias',c:'perdasMerc',nat:'d'},
+      {l:'( - ) Falta de Mercadorias',c:'faltaMerc',nat:'d'},
       {l:'( + ) Sobra de Mercadorias',c:'sobraMerc'},
-      {l:'( - ) Perdas Total',c:'perdasTotal'},
+      {l:'( - ) Perdas Total',c:'perdasTotal',nat:'d'},
       {l:'Margem de Contribuição',c:'margemContrib',s:true},
     ]},
     {g:'Despesas Fixas',ls:[
       {l:'Despesas Fixas Total',c:'despFixas'},
-      {l:'( - ) Despesas de Pessoal (Lojas)',c:'despPessoalLoja'},
-      {l:'( - ) Despesas de Pessoal (Administrativo)',c:'despPessoalAdm'},
-      {l:'( - ) Despesas Tributárias',c:'despTrib'},
-      {l:'( - ) Despesas com Utilidades',c:'despUtilidades'},
-      {l:'( - ) Despesas Manutenção',c:'despManutencao'},
-      {l:'( - ) Despesas Informática (T.I.)',c:'despTI'},
-      {l:'( - ) Despesas Honorários Terceiros',c:'despHonorarios'},
-      {l:'( - ) Despesas Material Expediente',c:'despMaterial'},
-      {l:'( - ) Despesas de Marketing',c:'despMarketing'},
-      {l:'( - ) Despesas com Veículos',c:'despVeiculos'},
-      {l:'( - ) Aluguéis',c:'alugueis'},
-      {l:'( - ) Despesas Gerais',c:'despGerais'},
+      {l:'( - ) Despesas de Pessoal (Lojas)',c:'despPessoalLoja',nat:'d'},
+      {l:'( - ) Despesas de Pessoal (Administrativo)',c:'despPessoalAdm',nat:'d'},
+      {l:'( - ) Despesas Tributárias',c:'despTrib',nat:'d'},
+      {l:'( - ) Despesas com Utilidades',c:'despUtilidades',nat:'d'},
+      {l:'( - ) Despesas Manutenção',c:'despManutencao',nat:'d'},
+      {l:'( - ) Despesas Informática (T.I.)',c:'despTI',nat:'d'},
+      {l:'( - ) Despesas Honorários Terceiros',c:'despHonorarios',nat:'d'},
+      {l:'( - ) Despesas Material Expediente',c:'despMaterial',nat:'d'},
+      {l:'( - ) Despesas de Marketing',c:'despMarketing',nat:'d'},
+      {l:'( - ) Despesas com Veículos',c:'despVeiculos',nat:'d'},
+      {l:'( - ) Aluguéis',c:'alugueis',nat:'d'},
+      {l:'( - ) Despesas Gerais',c:'despGerais',nat:'d'},
       {l:'( + ) Outras Receitas',c:'outrasReceitas'},
       {l:'( + ) Bonificações Recebidas',c:'bonificacao'},
       {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
     ]},
     {g:'Resultado',ls:[
       {l:'EBITDA',c:'ebitda',s:true},
-      {l:'( - ) Depreciação / Amortização',c:'depreciacao'},
+      {l:'( - ) Depreciação / Amortização',c:'depreciacao',nat:'d'},
       {l:'EBIT',c:'ebit',s:true},
       {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
       {l:'Resultado do Período',c:'resPeriodo',s:true},
-      {l:'( - ) IRPJ / CSLL',c:'irpj'},
+      {l:'( - ) IRPJ / CSLL',c:'irpj',nat:'d'},
       {l:'Resultado Líquido',c:'resLiquido',s:true},
     ]},
     {g:'Despesas Não Operacionais',ls:[
       {l:'Despesas Não Operacionais Total',c:'despNaoOp'},
-      {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino'},
-      {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego'},
-      {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago'},
-      {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia'},
-      {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa'},
+      {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino',nat:'d'},
+      {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego',nat:'d'},
+      {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago',nat:'d'},
+      {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia',nat:'d'},
+      {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa',nat:'d'},
       {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
       {l:'Cheques Devolvidos Líquido',c:'chqDevTotal'},
       {l:'( + ) Cheques Dev. Entradas',c:'chqDevEnt'},
-      {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai'},
-      {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
+      {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai',nat:'d'},
+      {l:'( - ) Aluguéis Holding',c:'alugueisHolding',nat:'d'},
     ]},
     {g:'Resultado Final',ls:[
       {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
-      {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
+      {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos',nat:'d'},
       {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
     ]},
   ];
@@ -1486,6 +1486,7 @@ function calcDREP2(dados,aS,aE,bS,bE){
 
   // KPI cards — principais indicadores
   const KPI=['recLiq','margemVenda','margemContrib','despOperacionais','ebitda','ebit','resLiquido','resLucroLiq'];
+  const KPINat={despOperacionais:'d'};
   const KPIlabels=['Receita Op. Líquida','Margem de Venda','Margem Contribuição','Desp. Operacionais','EBITDA','EBIT','Resultado Líquido','Lucro Líquido Final'];
 
   const _baseField=avBaseField();
@@ -1493,7 +1494,7 @@ function calcDREP2(dados,aS,aE,bS,bE){
   const recLiqB_dre=B[_baseField]||0;
 
   const cards=KPI.map((k,i)=>{
-    const{d,p}=df(A[k]||0,B[k]||0);const cls=d>=0?'good':'bad';
+    const{d,p}=df(A[k]||0,B[k]||0);const cls=dclsNat(d,KPINat[k]);
     const avA=recLiqA_dre?(A[k]||0)/recLiqA_dre*100:0;
     const avB=recLiqB_dre?(B[k]||0)/recLiqB_dre*100:0;
     const dpp=avB-avA;
@@ -1504,7 +1505,7 @@ function calcDREP2(dados,aS,aE,bS,bE){
       <div style="font-size:11px;color:var(--muted);margin-top:2px">A: ${fM(A[k]||0)} (${recLiqA_dre?fPS(avA,1)+'%':'—'})</div>
       <div style="font-size:11px;margin-top:2px">
         <span class="${cls}">${fM(d)} · ${fP(p)}</span>
-        ${Math.abs(dpp)>0.1?`<span class="${dcls(-dpp)}" style="margin-left:6px;font-size:10px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</span>`:''}
+        ${Math.abs(dpp)>0.1?`<span class="${dclsNat(dpp,KPINat[k])}" style="margin-left:6px;font-size:10px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</span>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1521,84 +1522,84 @@ function calcDREP2(dados,aS,aE,bS,bE){
   // Linhas da DRE — na ordem do CSV
   const EST_DRE_P2_MAIN=[
     {l:'Receita Bruta Operacional',c:'recBruta'},
-    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
-    {l:'( - ) Impostos sobre Vendas',c:'impostos'},
-    {l:'( - ) Devoluções de Venda',c:'devolucoes'},
+    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos',nat:'d'},
+    {l:'( - ) Impostos sobre Vendas',c:'impostos',nat:'d'},
+    {l:'( - ) Devoluções de Venda',c:'devolucoes',nat:'d'},
     {l:'Receita Operacional Líquida',c:'recLiq',s:true},
-    {l:'( - ) CMV Total',c:'cmvTotal'},
+    {l:'( - ) CMV Total',c:'cmvTotal',nat:'d'},
     {l:'Margem de Venda',c:'margemVenda',s:true},
-    {l:'( - ) Despesas Variáveis',c:'despVariaveis'},
+    {l:'( - ) Despesas Variáveis',c:'despVariaveis',nat:'d'},
     {l:'Margem de Contribuição',c:'margemContrib',s:true},
-    {l:'( - ) Despesas Fixas',c:'despFixas'},
+    {l:'( - ) Despesas Fixas',c:'despFixas',nat:'d'},
     {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
     {l:'EBITDA',c:'ebitda',s:true},
-    {l:'( - ) Depreciação/Amortização',c:'depreciacao'},
+    {l:'( - ) Depreciação/Amortização',c:'depreciacao',nat:'d'},
     {l:'EBIT',c:'ebit',s:true},
     {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
     {l:'Resultado Líquido',c:'resLiquido',s:true},
-    {l:'( - ) Despesas Não Operacionais',c:'despNaoOp'},
+    {l:'( - ) Despesas Não Operacionais',c:'despNaoOp',nat:'d'},
     {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
-    {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
+    {l:'( - ) Aluguéis Holding',c:'alugueisHolding',nat:'d'},
     {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
-    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
+    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos',nat:'d'},
     {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
   ];
 
   const EST_DRE_P2_FULL=[
     {l:'Receita Bruta Operacional',c:'recBruta'},
-    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos'},
+    {l:'( - ) Abatimentos s/ Vendas',c:'abatimentos',nat:'d'},
     {l:'Receita Bruta Efetiva (Produtos)',c:'recBrutaEfetiva'},
-    {l:'( - ) Impostos sobre Vendas',c:'impostos'},
-    {l:'( - ) Devoluções de Venda',c:'devolucoes'},
+    {l:'( - ) Impostos sobre Vendas',c:'impostos',nat:'d'},
+    {l:'( - ) Devoluções de Venda',c:'devolucoes',nat:'d'},
     {l:'Receita Operacional Líquida',c:'recLiq',s:true},
     {l:'CMV Total',c:'cmvTotal'},
-    {l:'( - ) CMV Produtos',c:'cmv'},
-    {l:'( - ) CMV Devoluções',c:'cmvDevol'},
+    {l:'( - ) CMV Produtos',c:'cmv',nat:'d'},
+    {l:'( - ) CMV Devoluções',c:'cmvDevol',nat:'d'},
     {l:'Margem de Venda',c:'margemVenda',s:true},
     {l:'Despesas Variáveis Total',c:'despVariaveis'},
-    {l:'( - ) Despesas c/ Vendas',c:'despVendas'},
-    {l:'( - ) Despesas c/ Vendas — Financeiras',c:'despFinanceiras'},
-    {l:'( - ) Perdas de Mercadorias',c:'perdasMerc'},
-    {l:'( - ) Falta de Mercadorias',c:'faltaMerc'},
+    {l:'( - ) Despesas c/ Vendas',c:'despVendas',nat:'d'},
+    {l:'( - ) Despesas c/ Vendas — Financeiras',c:'despFinanceiras',nat:'d'},
+    {l:'( - ) Perdas de Mercadorias',c:'perdasMerc',nat:'d'},
+    {l:'( - ) Falta de Mercadorias',c:'faltaMerc',nat:'d'},
     {l:'( + ) Sobra de Mercadorias',c:'sobraMerc'},
-    {l:'( - ) Perdas Total',c:'perdasTotal'},
+    {l:'( - ) Perdas Total',c:'perdasTotal',nat:'d'},
     {l:'Margem de Contribuição',c:'margemContrib',s:true},
     {l:'Despesas Fixas Total',c:'despFixas'},
-    {l:'( - ) Despesas de Pessoal (Lojas)',c:'despPessoalLoja'},
-    {l:'( - ) Despesas de Pessoal (Administrativo)',c:'despPessoalAdm'},
-    {l:'( - ) Despesas Tributárias',c:'despTrib'},
-    {l:'( - ) Despesas com Utilidades',c:'despUtilidades'},
-    {l:'( - ) Despesas Manutenção',c:'despManutencao'},
-    {l:'( - ) Despesas Informática (T.I.)',c:'despTI'},
-    {l:'( - ) Despesas Honorários Terceiros',c:'despHonorarios'},
-    {l:'( - ) Despesas Material Expediente',c:'despMaterial'},
-    {l:'( - ) Despesas de Marketing',c:'despMarketing'},
-    {l:'( - ) Despesas com Veículos',c:'despVeiculos'},
-    {l:'( - ) Aluguéis',c:'alugueis'},
-    {l:'( - ) Despesas Gerais',c:'despGerais'},
+    {l:'( - ) Despesas de Pessoal (Lojas)',c:'despPessoalLoja',nat:'d'},
+    {l:'( - ) Despesas de Pessoal (Administrativo)',c:'despPessoalAdm',nat:'d'},
+    {l:'( - ) Despesas Tributárias',c:'despTrib',nat:'d'},
+    {l:'( - ) Despesas com Utilidades',c:'despUtilidades',nat:'d'},
+    {l:'( - ) Despesas Manutenção',c:'despManutencao',nat:'d'},
+    {l:'( - ) Despesas Informática (T.I.)',c:'despTI',nat:'d'},
+    {l:'( - ) Despesas Honorários Terceiros',c:'despHonorarios',nat:'d'},
+    {l:'( - ) Despesas Material Expediente',c:'despMaterial',nat:'d'},
+    {l:'( - ) Despesas de Marketing',c:'despMarketing',nat:'d'},
+    {l:'( - ) Despesas com Veículos',c:'despVeiculos',nat:'d'},
+    {l:'( - ) Aluguéis',c:'alugueis',nat:'d'},
+    {l:'( - ) Despesas Gerais',c:'despGerais',nat:'d'},
     {l:'( + ) Outras Receitas',c:'outrasReceitas'},
     {l:'( + ) Bonificações Recebidas',c:'bonificacao'},
     {l:'Despesas Operacionais Total',c:'despOperacionais',s:true},
     {l:'EBITDA',c:'ebitda',s:true},
-    {l:'( - ) Depreciação / Amortização',c:'depreciacao'},
+    {l:'( - ) Depreciação / Amortização',c:'depreciacao',nat:'d'},
     {l:'EBIT',c:'ebit',s:true},
     {l:'( - ) Resultado Financeiro',c:'resFinanceiro'},
     {l:'Resultado do Período',c:'resPeriodo',s:true},
-    {l:'( - ) IRPJ / CSLL',c:'irpj'},
+    {l:'( - ) IRPJ / CSLL',c:'irpj',nat:'d'},
     {l:'Resultado Líquido',c:'resLiquido',s:true},
     {l:'Despesas Não Operacionais Total',c:'despNaoOp'},
-    {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino'},
-    {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego'},
-    {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago'},
-    {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia'},
-    {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa'},
+    {l:'( - ) Pró-Labore Tubertino',c:'proLaboreTubertino',nat:'d'},
+    {l:'( - ) Pró-Labore Diego',c:'proLaboreDiego',nat:'d'},
+    {l:'( - ) Pró-Labore Thiago',c:'proLaboreThiago',nat:'d'},
+    {l:'( - ) Pró-Labore Patricia',c:'proLaborePatricia',nat:'d'},
+    {l:'( - ) Pró-Labore Empresa',c:'proLaboreEmpresa',nat:'d'},
     {l:'Pró-Labore Total Sócios',c:'proLaboreEmp'},
     {l:'Cheques Devolvidos Líquido',c:'chqDevTotal'},
     {l:'( + ) Cheques Dev. Entradas',c:'chqDevEnt'},
-    {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai'},
-    {l:'( - ) Aluguéis Holding',c:'alugueisHolding'},
+    {l:'( - ) Cheques Dev. Recebidos',c:'chqDevSai',nat:'d'},
+    {l:'( - ) Aluguéis Holding',c:'alugueisHolding',nat:'d'},
     {l:'Lucro Líquido Final',c:'resLucroLiq',s:true},
-    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos'},
+    {l:'( - ) Empréstimos e Financiamentos',c:'emprestimos',nat:'d'},
     {l:'Resultado Após Empréstimos',c:'resAposEmp',s:true},
   ];
 
@@ -1614,9 +1615,9 @@ function calcDREP2(dados,aS,aE,bS,bE){
       <td style="font-size:12px;font-weight:${m.s?700:400};text-align:left;min-width:200px">${m.l}</td>
       <td><div class="cv ${(A[m.c]||0)<0&&m.s?'bad':''}">${fM(A[m.c]||0)}</div><div class="cp">A.V. ${recLiqA_dre?fPS(avA,2)+'%':'—'}</div></td>
       <td><div class="cv ${(B[m.c]||0)<0&&m.s?'bad':''}">${fM(B[m.c]||0)}</div><div class="cp">A.V. ${recLiqB_dre?fPS(avB,2)+'%':'—'}</div></td>
-      <td class="cv ${dcls(-dpp)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
-      <td class="cv ${dcls(d)}">${fM(d)}</td>
-      <td class="cv ${dcls(d)}">${fP(p)}</td>
+      <td class="cv ${dclsNat(dpp,m.nat)}" style="font-size:11px">${dpp>=0?'+':''}${dpp.toFixed(1)} p.p.</td>
+      <td class="cv ${dclsNat(d,m.nat)}">${fM(d)}</td>
+      <td class="cv ${dclsNat(d,m.nat)}">${fP(p)}</td>
       <td class="cv">${fM((A[m.c]||0)/A.months)}</td>
       <td class="cv">${fM((B[m.c]||0)/B.months)}</td>
     </tr>`;
