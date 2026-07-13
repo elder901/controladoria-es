@@ -3447,13 +3447,226 @@ async function calcularParams(){
     }
   }catch(e){console.log('Usando parâmetros padrão',e);}
 }
+// ═══════════════════════════════════════════════════════════════
+// ORCAMENTO DRE 12 MESES — cascata a partir da RBE (visao comercial)
+// ═══════════════════════════════════════════════════════════════
+let orcState=null;
+function orcLoad(){
+  if(orcState)return orcState;
+  try{orcState=JSON.parse(localStorage.getItem('orc.dre12.v1'))||{};}catch(e){orcState={};}
+  if(!orcState.premissas)orcState.premissas={};
+  if(!orcState.meses)orcState.meses={};
+  return orcState;
+}
+function orcSave(){try{localStorage.setItem('orc.dre12.v1',JSON.stringify(orcState));}catch(e){}}
+window.orcSetPrem=function(campo,val){
+  orcLoad();
+  var v=parseFloat(String(val).replace(',','.'));
+  if(isNaN(v))delete orcState.premissas[campo];else orcState.premissas[campo]=v;
+  orcSave();renderOrcamento12();
+};
+window.orcSetMes=function(rot,campo,val){
+  orcLoad();
+  if(!orcState.meses[rot])orcState.meses[rot]={};
+  var v=parseFloat(String(val).replace(',','.'));
+  if(isNaN(v))delete orcState.meses[rot][campo];else orcState.meses[rot][campo]=v;
+  orcSave();renderOrcamento12();
+};
+window.orcReset=function(){
+  if(!confirm('Limpar todas as premissas e valores do orcamento?'))return;
+  orcState={premissas:{},meses:{}};orcSave();renderOrcamento12();
+};
+
+async function renderOrcamento12(){
+  var fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Calculando historicos e montando orcamento...</div>';
+  orcLoad();
+
+  var dre=[];
+  try{dre=await getDadosDRE();}catch(e){}
+  if(!dre.length){fp.innerHTML='<div class="errmsg">Sem dados de DRE para basear o orcamento.</div>';return;}
+
+  // ── Historicos: ultimos 12 meses disponiveis ──
+  var ult12=dre.slice(-12);
+  function med(fn){var v=ult12.map(fn).filter(function(x){return x!=null&&!isNaN(x)&&isFinite(x);});return v.length?v.reduce(function(s,x){return s+x;},0)/v.length:0;}
+  var hist={
+    pctImp:   med(function(d){var r=d.recBrutaEfetiva_tej||0;return r?Math.abs(d.impostos_tej||0)/r*100:null;}),
+    pctDev:   med(function(d){var r=d.recBrutaEfetiva_tej||0;return r?Math.abs(d.devolucoes_tej||0)/r*100:null;}),
+    margem:   med(function(d){var r=d.recBrutaEfetiva_tej||0;return r?(d.margemVenda_tej||0)/r*100:null;}),
+    pctDespVar:med(function(d){var r=d.recBrutaEfetiva_tej||0;return r?Math.abs(d.despVariaveis_tej||0)/r*100:null;}),
+    pctFixas: med(function(d){var r=d.recBrutaEfetiva_tej||0;return r?Math.abs(d.despFixas_tej||0)/r*100:null;}),
+    deprec:   med(function(d){return Math.abs(d.depreciacao_tej||0)||null;}),
+    resFin:   med(function(d){return d.resFinanceiro_tej;}),
+    pctIR:    med(function(d){var rp=d.resPeriodo_tej||0;return rp>1000?Math.abs(d.irpj_tej||0)/rp*100:null;}),
+    naoOper:  med(function(d){var a=d.resLiquido_tej,b=d.resLucroLiq_tej;return(a!=null&&b!=null)?(a-b):null;}),
+    amort:    med(function(d){return Math.abs(d.emprestimos_tej||0)||null;}),
+    cresc:    3.0
+  };
+
+  // premissa efetiva = editada ?? historica
+  var P={};
+  for(var k in hist){P[k]=(orcState.premissas[k]!=null)?orcState.premissas[k]:Math.round(hist[k]*100)/100;}
+
+  // ── Meses do horizonte: jul/26 -> jun/27, base = mesmo mes AA ──
+  var MESES_ORC=[
+    {rot:'jul/26',aa:'jul/25'},{rot:'ago/26',aa:'ago/25'},{rot:'set/26',aa:'set/25'},
+    {rot:'out/26',aa:'out/25'},{rot:'nov/26',aa:'nov/25'},{rot:'dez/26',aa:'dez/25'},
+    {rot:'jan/27',aa:'jan/26'},{rot:'fev/27',aa:'fev/26'},{rot:'mar/27',aa:'mar/26'},
+    {rot:'abr/27',aa:'abr/26'},{rot:'mai/27',aa:'mai/26'},{rot:'jun/27',aa:'jun/26'}
+  ];
+  var mapaDre={};
+  for(var i=0;i<dre.length;i++){if(dre[i]&&dre[i].rot)mapaDre[dre[i].rot]=dre[i];}
+
+  // ── Calculo da cascata por mes ──
+  function calcMes(m){
+    var mm=orcState.meses[m.rot]||{};
+    var dAA=mapaDre[m.aa];
+    var rbeAA=dAA?(dAA.recBrutaEfetiva_tej||null):null;
+    var rbe=(mm.rbe!=null)?mm.rbe:(rbeAA!=null?rbeAA*(1+P.cresc/100):null);
+    if(rbe==null)return{rot:m.rot,aa:m.aa,rbeAA:rbeAA,vazio:true};
+    var imp=rbe*P.pctImp/100, dev=rbe*P.pctDev/100;
+    var recLiq=rbe-imp-dev;
+    var mgPct=(mm.margem!=null)?mm.margem:P.margem;
+    var margem=rbe*mgPct/100;
+    var cmv=recLiq-margem;
+    var dvar=rbe*P.pctDespVar/100;
+    var mc=margem-dvar;
+    var fixas=(mm.fixas!=null)?mm.fixas:rbe*P.pctFixas/100;
+    var pctFixasEfet=rbe?fixas/rbe*100:0;
+    var ebitda=mc-fixas;
+    var ebit=ebitda-P.deprec;
+    var resPer=ebit+P.resFin;
+    var ir=resPer>0?resPer*P.pctIR/100:0;
+    var resLiq=resPer-ir;
+    var lucroFinal=resLiq-P.naoOper;
+    var resApos=lucroFinal-P.amort;
+    return{rot:m.rot,aa:m.aa,rbeAA:rbeAA,rbe:rbe,rbeManual:(mm.rbe!=null),imp:imp,dev:dev,recLiq:recLiq,
+      mgPct:mgPct,mgManual:(mm.margem!=null),margem:margem,cmv:cmv,dvar:dvar,mc:mc,
+      fixas:fixas,fixasManual:(mm.fixas!=null),pctFixasEfet:pctFixasEfet,ebitda:ebitda,
+      pctEbitda:rbe?ebitda/rbe*100:0,ebit:ebit,resPer:resPer,ir:ir,resLiq:resLiq,
+      lucroFinal:lucroFinal,resApos:resApos,realizado:!!mapaDre[m.rot]};
+  }
+  var calc=MESES_ORC.map(calcMes);
+
+  var fk=function(v){if(v==null||isNaN(v))return'--';var a=Math.abs(v),s=v<0?'-':'';if(a>=1e6)return s+(a/1e6).toFixed(2).replace('.',',')+'M';return s+(a/1e3).toFixed(0)+'k';};
+  var sum=function(campo){var t=0,n=0;for(var i=0;i<calc.length;i++){if(!calc[i].vazio&&calc[i][campo]!=null){t+=calc[i][campo];n++;}}return n?t:null;};
+
+  // ── Toolbar de premissas globais (com referencia historica) ──
+  function prem(campo,label,unid,step){
+    return '<div class="tg"><label>'+label+'</label>'+
+      '<div style="display:flex;align-items:center;gap:4px">'+
+      '<input type="number" step="'+(step||0.1)+'" value="'+P[campo]+'" '+
+      'onchange="orcSetPrem(&quot;'+campo+'&quot;,this.value)" '+
+      'style="width:78px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;font-size:12px">'+
+      '<span style="font-size:10px;color:var(--muted)">'+unid+'<br>hist. '+(unid==='R$'?fk(hist[campo]):hist[campo].toFixed(2).replace('.',',')+'%')+'</span>'+
+      '</div></div>';
+  }
+  var toolbar='<div class="toolbar" style="flex-wrap:wrap;gap:10px;align-items:flex-end">'+
+    prem('cresc','Crescimento s/ AA','%')+
+    prem('pctImp','Impostos','% RBE')+
+    prem('pctDev','Devolucoes','% RBE')+
+    prem('margem','Margem padrao','% RBE')+
+    prem('pctDespVar','Desp. variaveis','% RBE')+
+    prem('pctFixas','Desp. fixas padrao','% RBE')+
+    prem('deprec','Depreciacao/mes','R$',1000)+
+    prem('resFin','Res. financeiro/mes','R$',1000)+
+    prem('pctIR','IRPJ efetivo','%')+
+    prem('naoOper','Nao operacionais/mes','R$',1000)+
+    prem('amort','Amortizacao/mes','R$',1000)+
+    '<div style="flex:1"></div>'+
+    '<button class="dre-fs-btn" onclick="orcReset()">Limpar tudo</button>'+
+    '<button class="dre-fs-btn" onclick="dreToggleFS(&quot;orc-wrap&quot;)"><span>&#9974;</span> Fullscreen</button>'+
+    '</div>';
+
+  // ── Tabela: linhas DRE x 12 meses + total ──
+  function inputCell(rot,campo,val,manual,largura){
+    return '<input type="number" step="0.1" value="'+(val!=null?Math.round(val*100)/100:'')+'" '+
+      'onchange="orcSetMes(&quot;'+rot+'&quot;,&quot;'+campo+'&quot;,this.value)" '+
+      'style="width:'+(largura||72)+'px;padding:3px 5px;border:1px solid '+(manual?'var(--accent)':'var(--line)')+';border-radius:5px;font-size:11px;text-align:right'+(manual?';background:#eef2ff':'')+'">';
+  }
+  var hdr='<tr><th style="min-width:210px;text-align:left">Linha</th>';
+  for(var i=0;i<calc.length;i++){
+    hdr+='<th style="min-width:86px">'+calc[i].rot+(calc[i].realizado?' <span title="mes ja realizado" style="color:var(--good)">&#10003;</span>':'')+'</th>';
+  }
+  hdr+='<th class="ctot">TOTAL 12m</th></tr>';
+
+  function linha(label,campo,opts){
+    opts=opts||{};
+    var tr='<tr style="'+(opts.s?'font-weight:700;background:var(--soft)':'')+'">'+
+      '<td style="text-align:left;font-size:11px;'+(opts.s?'font-weight:700':'')+'">'+label+'</td>';
+    for(var i=0;i<calc.length;i++){
+      var c=calc[i];
+      var cell='--';
+      if(opts.tipo==='rbe'){
+        cell=c.vazio
+          ?inputCell(c.rot,'rbe',null,false,80)+'<div style="font-size:9px;color:var(--muted)">sem base AA</div>'
+          :inputCell(c.rot,'rbe',c.rbe,c.rbeManual,80)+'<div style="font-size:9px;color:var(--muted)">AA: '+fk(c.rbeAA)+'</div>';
+      }else if(opts.tipo==='margemPct'){
+        cell=c.vazio?'--':inputCell(c.rot,'margem',c.mgPct,c.mgManual,58)+'%';
+      }else if(opts.tipo==='fixas'){
+        cell=c.vazio?'--':inputCell(c.rot,'fixas',c.fixas,c.fixasManual,80)+
+          '<div style="font-size:9px;color:var(--muted)">'+c.pctFixasEfet.toFixed(1).replace('.',',')+'% RBE</div>';
+      }else if(!c.vazio&&c[campo]!=null){
+        cell=fk(c[campo]);
+        if(opts.pct&&c.rbe)cell+='<div style="font-size:9px;color:var(--muted)">'+(c[campo]/c.rbe*100).toFixed(1).replace('.',',')+'%</div>';
+      }
+      tr+='<td class="cv" style="text-align:right;font-size:11px">'+cell+'</td>';
+    }
+    var tot=(opts.tipo==='margemPct')?null:sum(campo==null?'':campo);
+    tr+='<td class="cv ctot" style="text-align:right">'+(opts.tipo==='margemPct'?'--':fk(tot))+'</td></tr>';
+    return tr;
+  }
+
+  function linhaPrem(label,campo){
+    var tr='<tr><td style="text-align:left;font-size:11px">'+label+'</td>';
+    var tot=0,n=0;
+    for(var i=0;i<calc.length;i++){
+      if(calc[i].vazio){tr+='<td class="cv" style="text-align:right;font-size:11px;color:var(--muted)">--</td>';}
+      else{tr+='<td class="cv" style="text-align:right;font-size:11px;color:var(--muted)">'+fk(P[campo])+'</td>';tot+=P[campo];n++;}
+    }
+    tr+='<td class="cv ctot" style="text-align:right">'+(n?fk(tot):'--')+'</td></tr>';
+    return tr;
+  }
+  var corpo=
+    linha('RECEITA BRUTA EFETIVA (editavel)',  'rbe',   {tipo:'rbe',s:true})+
+    linha('( - ) Impostos s/ vendas',           'imp',   {})+
+    linha('( - ) Devolucoes',                   'dev',   {})+
+    linha('( = ) RECEITA LIQUIDA',              'recLiq',{s:true})+
+    linha('META MARGEM % s/ RBE (editavel)',    null,    {tipo:'margemPct'})+
+    linha('( = ) MARGEM DE VENDA',              'margem',{s:true})+
+    linha('( = ) CMV (derivado)',               'cmv',   {})+
+    linha('( - ) Despesas variaveis',           'dvar',  {})+
+    linha('( = ) MARGEM DE CONTRIBUICAO',       'mc',    {s:true})+
+    linha('( - ) DESPESAS FIXAS R$ (editavel)', 'fixas', {tipo:'fixas'})+
+    linha('( = ) EBITDA',                       'ebitda',{s:true,pct:true})+
+    linhaPrem('( - ) Depreciacao','deprec')+
+    linha('( = ) EBIT',                         'ebit',  {})+
+    linhaPrem('( +/- ) Resultado financeiro','resFin')+
+    linha('( - ) IRPJ / CSLL',                  'ir',    {})+
+    linha('( = ) RESULTADO LIQUIDO',            'resLiq',{s:true})+
+    linhaPrem('( - ) Nao operacionais','naoOper')+
+    linha('( = ) LUCRO LIQUIDO FINAL',          'lucroFinal',{s:true})+
+    linhaPrem('( - ) Amortizacao emprestimos','amort')+
+    linha('( = ) RESULTADO APOS EMPRESTIMOS',   'resApos',{s:true});
+
+  fp.innerHTML=toolbar+
+    '<div class="section" id="orc-wrap">'+
+    '<div class="shead"><h2>Orcamento DRE &mdash; jul/26 a jun/27</h2>'+
+    '<span class="legend">RBE = mesmo mes ano anterior &times; (1+crescimento) &middot; celulas com borda azul = editadas manualmente &middot; salvo automaticamente neste navegador</span></div>'+
+    '<div class="twrap"><table><thead>'+hdr+'</thead><tbody>'+corpo+'</tbody></table></div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px">Depreciacao, resultado financeiro, nao operacionais e amortizacao usam as premissas globais da barra superior (valor mensal constante). &#10003; no cabecalho = mes ja possui DRE realizada.</div>'+
+    '</div>';
+}
+
 async function renderPrevisao(){
   document.getElementById('main').innerHTML=`
     <div class="mtabs">
       <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Simulador de Faturamento</button>
       <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Projeção 12 Meses</button>
+      <button class="mtab ${S.pag===3?'active':''}" onclick="setPag(3)">Orçamento DRE 12m</button>
     </div>
     <div id="fp"><div class="loading">Carregando parâmetros históricos...</div></div>`;
+  if(S.pag===3){renderOrcamento12();return;}
   await calcularParams();
   if(S.pag===1)renderSimulador();else renderProjecao12();
 }
