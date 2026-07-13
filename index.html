@@ -3492,14 +3492,11 @@ window.orcReset=function(){
   orcState={premissas:{},meses:{}};orcSave();renderOrcamento12();
 };
 
-async function renderOrcamento12(){
-  var fp=document.getElementById('fp');
-  fp.innerHTML='<div class="loading">Calculando historicos e montando orcamento...</div>';
+async function orcComputar(){
   orcLoad();
-
   var dre=[];
   try{dre=await getDadosDRE();}catch(e){}
-  if(!dre.length){fp.innerHTML='<div class="errmsg">Sem dados de DRE para basear o orcamento.</div>';return;}
+  if(!dre.length)return null;
 
   // ── Historicos: ultimos 12 meses disponiveis ──
   var ult12=dre.slice(-12);
@@ -3591,8 +3588,18 @@ async function renderOrcamento12(){
       lucroFinal:lucroFinal,resApos:resApos,realizado:!!mapaDre[m.rot]};
   }
   var calc=MESES_ORC.map(calcMes);
+  return {calc:calc,P:P,hist:hist,histFx:histFx,FX_CAMPOS:FX_CAMPOS};
+}
 
-  var fk=function(v){if(v==null||isNaN(v))return'--';var a=Math.abs(v),s=v<0?'-':'';if(a>=1e6)return s+(a/1e6).toFixed(2).replace('.',',')+'M';return s+(a/1e3).toFixed(0)+'k';};
+var fkOrc=function(v){if(v==null||isNaN(v))return'--';var a=Math.abs(v),s=v<0?'-':'';if(a>=1e6)return s+(a/1e6).toFixed(2).replace('.',',')+'M';return s+(a/1e3).toFixed(0)+'k';};
+
+async function renderOrcamento12(){
+  var fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Calculando historicos e montando orcamento...</div>';
+  var R=await orcComputar();
+  if(!R){fp.innerHTML='<div class="errmsg">Sem dados de DRE para basear o orcamento.</div>';return;}
+  var calc=R.calc,P=R.P,hist=R.hist,histFx=R.histFx,FX_CAMPOS=R.FX_CAMPOS;
+  var fk=fkOrc;
   var sum=function(campo){var t=0,n=0;for(var i=0;i<calc.length;i++){if(!calc[i].vazio&&calc[i][campo]!=null){t+=calc[i][campo];n++;}}return n?t:null;};
 
   // ── Toolbar de premissas globais (com referencia historica) ──
@@ -3728,15 +3735,196 @@ async function renderOrcamento12(){
     '</div>';
 }
 
+// ── ORCAMENTO VISUAL — tela de apresentacao do resultado ──
+window.orcVisSel={margem:true,custoOp:true,ebitda:true,lucroFinal:true,amort:true,resApos:true};
+window.orcVisToggle=function(c){orcVisSel[c]=!orcVisSel[c];renderOrcamentoVisual();};
+async function renderOrcamentoVisual(){
+  var fp=document.getElementById('fp');
+  fp.innerHTML='<div class="loading">Montando visao do orcamento...</div>';
+  var R=await orcComputar();
+  if(!R){fp.innerHTML='<div class="errmsg">Sem dados de DRE para basear o orcamento.</div>';return;}
+  var calc=R.calc.filter(function(c){return !c.vazio;});
+  if(!calc.length){fp.innerHTML='<div class="errmsg">Nenhum mes calculavel. Preencha a RBE na aba de preenchimento.</div>';return;}
+  var P=R.P, fk=fkOrc;
+  var fP2=function(v){return v==null||isNaN(v)?'--':v.toFixed(1).replace('.',',')+'%';};
+
+  // Linhas da visao (com custoOp = dvar + fixas)
+  function get(c,campo){
+    if(campo==='custoOp')return (c.dvar||0)+(c.fixas||0);
+    if(campo==='deprec')return P.deprec;
+    if(campo==='resFin')return P.resFin;
+    if(campo==='naoOper')return P.naoOper;
+    if(campo==='amort')return P.amort;
+    return c[campo];
+  }
+  var LINHAS=[
+    {l:'Receita Bruta Efetiva',   c:'rbe',       s:true},
+    {l:'Receita Liquida',         c:'recLiq'},
+    {l:'Margem de Venda',         c:'margem',    s:true, pct:true},
+    {l:'Custo Operacional (var + fixas)', c:'custoOp', neg:true},
+    {l:'EBITDA',                  c:'ebitda',    s:true, pct:true},
+    {l:'( - ) Depreciacao',       c:'deprec',    neg:true},
+    {l:'EBIT',                    c:'ebit'},
+    {l:'( +/- ) Resultado Financeiro', c:'resFin'},
+    {l:'( - ) IRPJ / CSLL',       c:'ir',        neg:true},
+    {l:'RESULTADO LIQUIDO',       c:'resLiq',    s:true},
+    {l:'( - ) Nao Operacionais',  c:'naoOper',   neg:true},
+    {l:'LUCRO LIQUIDO FINAL',     c:'lucroFinal',s:true, pct:true},
+    {l:'( - ) Amortizacao Emprestimos', c:'amort', neg:true},
+    {l:'RESULTADO APOS EMPRESTIMOS', c:'resApos', s:true}
+  ];
+  function tot(campo){var t=0;for(var i=0;i<calc.length;i++)t+=get(calc[i],campo)||0;return t;}
+
+  // ── Cards de resumo anual ──
+  var tRbe=tot('rbe'),tEb=tot('ebitda'),tLf=tot('lucroFinal'),tRa=tot('resApos'),tRl=tot('recLiq');
+  function card(t,v,sub,cor){return '<div class="kcard"><h3>'+t+'</h3><div class="kval" style="font-size:19px;color:'+(cor||'var(--ink)')+'">'+v+'</div><div class="kmeta">'+sub+'</div></div>';}
+  var cards='<div class="cards" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">'+
+    card('Receita Bruta Efetiva','R$ '+fk(tRbe),calc.length+' meses orcados')+
+    card('Receita Liquida','R$ '+fk(tRl),fP2(tRl/tRbe*100)+' da RBE')+
+    card('EBITDA','R$ '+fk(tEb),fP2(tEb/tRbe*100)+' da RBE',tEb>0?'var(--good)':'var(--bad)')+
+    card('Lucro Liquido Final','R$ '+fk(tLf),fP2(tLf/tRbe*100)+' da RBE',tLf>0?'var(--good)':'var(--bad)')+
+    card('Apos Emprestimos','R$ '+fk(tRa),'sobra de caixa do resultado',tRa>0?'var(--good)':'var(--bad)')+
+    '</div>';
+
+  // ── Grafico mensal: barras RBE + linhas selecionaveis ──
+  var SERIES=[
+    {c:'margem',    l:'Margem de Venda',      cor:'#7c3aed'},
+    {c:'custoOp',   l:'Custo Operacional',    cor:'#dc2626'},
+    {c:'ebitda',    l:'EBITDA',               cor:'#15803d'},
+    {c:'lucroFinal',l:'Lucro Liquido Final',  cor:'#f59e0b'},
+    {c:'amort',     l:'Amortizacao Emprest.', cor:'#0891b2'},
+    {c:'resApos',   l:'Apos Emprestimos',     cor:'#334155'}
+  ];
+  var ativas=SERIES.filter(function(s){return orcVisSel[s.c];});
+  var W=940,H=290,pad=40,gw=(W-pad*2)/calc.length;
+  var maxR=0,maxL=1;
+  for(var i=0;i<calc.length;i++){
+    if(calc[i].rbe>maxR)maxR=calc[i].rbe;
+    for(var si=0;si<ativas.length;si++){
+      var av=Math.abs(get(calc[i],ativas[si].c)||0);
+      if(av>maxL)maxL=av;
+    }
+  }
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">';
+  // barras RBE
+  for(var i=0;i<calc.length;i++){
+    var c=calc[i],x=pad+i*gw;
+    var bh=(c.rbe/maxR)*(H-90);
+    svg+='<rect x="'+(x+6)+'" y="'+(H-40-bh)+'" width="'+(gw-24)+'" height="'+bh+'" rx="4" fill="#dbeafe"><title>RBE '+c.rot+': '+fk(c.rbe)+'</title></rect>';
+    svg+='<text x="'+(x+gw/2-6)+'" y="'+(H-46-bh)+'" text-anchor="middle" font-size="9" fill="#1d4ed8">'+fk(c.rbe)+'</text>';
+    svg+='<text x="'+(x+gw/2-6)+'" y="'+(H-24)+'" text-anchor="middle" font-size="9" fill="#64748b">'+c.rot+'</text>';
+  }
+  // linhas das series ativas
+  var mostrarLabels=ativas.length<=3;
+  for(var si=0;si<ativas.length;si++){
+    var s=ativas[si],pts='';
+    for(var i=0;i<calc.length;i++){
+      var v=get(calc[i],s.c)||0;
+      var x=pad+i*gw+gw/2-6;
+      var y=H-40-(Math.max(0,v)/maxL)*(H-120);
+      pts+=(i===0?'M':'L')+x+' '+y+' ';
+      svg+='<circle cx="'+x+'" cy="'+y+'" r="2.6" fill="'+s.cor+'"><title>'+s.l+' '+calc[i].rot+': '+fk(v)+'</title></circle>';
+      if(mostrarLabels)svg+='<text x="'+x+'" y="'+(y-7)+'" text-anchor="middle" font-size="8.5" fill="'+s.cor+'">'+fk(v)+'</text>';
+      else if(i===calc.length-1)svg+='<text x="'+(x+10)+'" y="'+(y+3)+'" font-size="8.5" font-weight="700" fill="'+s.cor+'">'+fk(v)+'</text>';
+    }
+    svg+='<path d="'+pts+'" fill="none" stroke="'+s.cor+'" stroke-width="2"/>';
+  }
+  svg+='</svg>';
+  // checkboxes das series
+  var chks='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px">'+
+    '<span style="color:#1d4ed8;font-weight:700">&#9632; RBE (barras)</span>';
+  for(var si=0;si<SERIES.length;si++){
+    var s=SERIES[si];
+    chks+='<label style="display:flex;align-items:center;gap:4px;cursor:pointer">'+
+      '<input type="checkbox"'+(orcVisSel[s.c]?' checked':'')+' onchange="orcVisToggle(&quot;'+s.c+'&quot;)">'+
+      '<span style="color:'+s.cor+';font-weight:600">&#9644; '+s.l+'</span></label>';
+  }
+  chks+='</div>';
+  svg=chks+svg;
+
+  // ── Waterfall anual: da Margem ao Resultado ──
+  var steps=[
+    {l:'Margem de Venda', v:tot('margem'), tipo:'base'},
+    {l:'Desp. Variaveis', v:-tot('dvar'), tipo:'delta'},
+    {l:'Desp. Fixas', v:-tot('fixas'), tipo:'delta'},
+    {l:'EBITDA', tipo:'sub'},
+    {l:'Depreciacao', v:-tot('deprec'), tipo:'delta'},
+    {l:'Res. Financeiro', v:tot('resFin'), tipo:'delta'},
+    {l:'IRPJ', v:-tot('ir'), tipo:'delta'},
+    {l:'Res. Liquido', tipo:'sub'},
+    {l:'Nao Operacionais', v:-tot('naoOper'), tipo:'delta'},
+    {l:'Lucro Final', tipo:'sub'},
+    {l:'Amortizacao', v:-tot('amort'), tipo:'delta'},
+    {l:'Apos Emprestimos', tipo:'sub'}
+  ];
+  var W2=940,H2=280,pad2=20,gw2=(W2-pad2*2)/steps.length;
+  var run=0,maxW=0;
+  for(var i=0;i<steps.length;i++){
+    if(steps[i].tipo==='base'){run=steps[i].v;steps[i].y0=0;steps[i].y1=run;}
+    else if(steps[i].tipo==='delta'){steps[i].y0=run;run+=steps[i].v;steps[i].y1=run;}
+    else{steps[i].y0=0;steps[i].y1=run;steps[i].v=run;}
+    if(Math.abs(steps[i].y0)>maxW)maxW=Math.abs(steps[i].y0);
+    if(Math.abs(steps[i].y1)>maxW)maxW=Math.abs(steps[i].y1);
+  }
+  var esc=(H2-80)/maxW;
+  var wf='<svg viewBox="0 0 '+W2+' '+H2+'" style="width:100%;height:auto">';
+  for(var i=0;i<steps.length;i++){
+    var s=steps[i];
+    var x=pad2+i*gw2;
+    var yA=H2-40-Math.max(s.y0,s.y1)*esc;
+    var hh=Math.max(2,Math.abs(s.y1-s.y0)*esc);
+    var cor=s.tipo==='base'?'#1d4ed8':s.tipo==='sub'?'#0f172a':(s.v>=0?'#15803d':'#dc2626');
+    wf+='<rect x="'+(x+8)+'" y="'+yA+'" width="'+(gw2-20)+'" height="'+hh+'" rx="3" fill="'+cor+'" opacity="'+(s.tipo==='sub'?'0.85':'0.75')+'"/>';
+    wf+='<text x="'+(x+gw2/2-2)+'" y="'+(yA-6)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+cor+'">'+fk(s.tipo==='delta'?s.v:s.y1)+'</text>';
+    wf+='<text x="'+(x+gw2/2-2)+'" y="'+(H2-22)+'" text-anchor="middle" font-size="8.5" fill="#475569">'+s.l+'</text>';
+  }
+  wf+='</svg>';
+
+  // ── Tabela limpa 14 linhas x meses + total ──
+  var hdr='<tr><th style="min-width:230px;text-align:left">Linha</th>';
+  for(var i=0;i<calc.length;i++)hdr+='<th>'+calc[i].rot+'</th>';
+  hdr+='<th class="ctot">TOTAL</th></tr>';
+  var corpo='';
+  for(var li=0;li<LINHAS.length;li++){
+    var L=LINHAS[li];
+    var tr='<tr style="'+(L.s?'font-weight:700;background:var(--soft)':'')+'"><td style="text-align:left;font-size:11px">'+L.l+'</td>';
+    var t=0;
+    for(var i=0;i<calc.length;i++){
+      var v=get(calc[i],L.c);t+=v||0;
+      var cor=(L.neg||v>=0)?'':'color:var(--bad)';
+      var cell=fk(v);
+      if(L.pct&&calc[i].rbe)cell+='<div style="font-size:9px;color:var(--muted)">'+fP2(v/calc[i].rbe*100)+'</div>';
+      tr+='<td class="cv" style="text-align:right;font-size:11px;'+cor+'">'+cell+'</td>';
+    }
+    var cellT=fk(t);
+    if(L.pct&&tRbe)cellT+='<div style="font-size:9px;color:var(--muted)">'+fP2(t/tRbe*100)+'</div>';
+    tr+='<td class="cv ctot" style="text-align:right">'+cellT+'</td></tr>';
+    corpo+=tr;
+  }
+
+  fp.innerHTML=cards+
+    '<div class="section" id="orcv-wrap">'+
+    '<div class="shead"><h2>Receita &times; EBITDA &mdash; mes a mes</h2>'+
+    '<div style="display:flex;gap:8px"><button class="dre-fs-btn" onclick="dreToggleFS(&quot;orcv-wrap&quot;)"><span>&#9974;</span> Fullscreen</button></div></div>'+
+    svg+'</div>'+
+    '<div class="section"><div class="shead"><h2>Cascata do Resultado &mdash; 12 meses orcados</h2>'+
+    '<span class="legend">Da margem de venda ao resultado apos emprestimos</span></div>'+wf+'</div>'+
+    '<div class="section"><div class="shead"><h2>DRE Orcada &mdash; Resumo</h2>'+
+    '<span class="legend">valores derivados da aba de preenchimento</span></div>'+
+    '<div class="twrap"><table><thead>'+hdr+'</thead><tbody>'+corpo+'</tbody></table></div></div>';
+}
+
 async function renderPrevisao(){
   document.getElementById('main').innerHTML=`
     <div class="mtabs">
       <button class="mtab ${S.pag===1?'active':''}" onclick="setPag(1)">Simulador de Faturamento</button>
       <button class="mtab ${S.pag===2?'active':''}" onclick="setPag(2)">Projeção 12 Meses</button>
       <button class="mtab ${S.pag===3?'active':''}" onclick="setPag(3)">Orçamento DRE 12m</button>
+      <button class="mtab ${S.pag===4?'active':''}" onclick="setPag(4)">Orçamento — Visual</button>
     </div>
     <div id="fp"><div class="loading">Carregando parâmetros históricos...</div></div>`;
   if(S.pag===3){renderOrcamento12();return;}
+  if(S.pag===4){renderOrcamentoVisual();return;}
   await calcularParams();
   if(S.pag===1)renderSimulador();else renderProjecao12();
 }
